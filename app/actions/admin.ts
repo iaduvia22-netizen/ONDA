@@ -53,8 +53,8 @@ export async function createJournalistAction(name: string, email: string, passwo
     const admins = await db.query.users.findMany({
       where: eq(users.role, 'admin')
     });
-    if (admins.length >= 2) {
-      throw new Error("Capacidad Máxima de Comando: Solo se permiten 2 cuentas de Director en la red.");
+    if (admins.length >= 4) {
+      throw new Error("Capacidad Máxima de Comando: Solo se permiten 4 cuentas de Director en la red.");
     }
   }
   
@@ -126,7 +126,7 @@ export async function toggleUserRoleAction(targetUserId: string, confirmPassword
   // Verificar límites antes de cambiar
   if (newRole === 'admin') {
     const admins = await db.query.users.findMany({ where: eq(users.role, 'admin') });
-    if (admins.length >= 2) throw new Error("Límite de Directores alcanzado (Máx 2).");
+    if (admins.length >= 4) throw new Error("Límite de Directores alcanzado (Máx 4).");
   } else {
     const analysts = await db.query.users.findMany({ where: eq(users.role, 'analyst') });
     if (analysts.length >= 8) throw new Error("Límite de Analistas alcanzado (Máx 8).");

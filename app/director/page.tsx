@@ -26,7 +26,7 @@ export default function DirectorPage() {
   const admins = usersList.filter(u => u.role === 'admin');
   
   const analystLimitReached = analysts.length >= 8;
-  const adminLimitReached = admins.length >= 2;
+  const adminLimitReached = admins.length >= 4;
   const currentLimitReached = newUser.role === 'analyst' ? analystLimitReached : adminLimitReached;
 
   // State para API Vault
@@ -210,7 +210,7 @@ export default function DirectorPage() {
                         "text-[8px] font-black px-2 py-0.5 rounded",
                         adminLimitReached ? "bg-red-500/20 text-red-500" : "bg-purple-500/20 text-purple-400"
                       )}>
-                        Directores: {admins.length}/2
+                        Directores: {admins.length}/4
                       </div>
                     </div>
                   </div>
@@ -223,7 +223,7 @@ export default function DirectorPage() {
                             Límite Alcanzado
                           </p>
                           <p className="text-[10px] text-white/40 mt-1 uppercase leading-relaxed tracking-wider">
-                            La red de Onda está limitada a 8 analistas y 2 directores por seguridad. Elimina un miembro para habilitar espacio.
+                            La red de Onda está limitada a 8 analistas y 4 directores por seguridad. Elimina un miembro para habilitar espacio.
                           </p>
                        </div>
                     </div>
