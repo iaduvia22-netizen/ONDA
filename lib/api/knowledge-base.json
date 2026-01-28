@@ -1,0 +1,39 @@
+[
+  {
+    "topic": "Venezuela 2026",
+    "keywords": ["delcy", "maduro", "caracas", "intervención", "españa", "embajadores"],
+    "facts": [
+      {
+        "event": "Operación Determinación Absoluta (Operation Absolute Resolve)",
+        "date": "2026-01-03",
+        "time": "02:01 - 04:29 HLV",
+        "details": "Incursión militar de EE.UU. ejecutada por el 160.º SOAR y el 1.º SFOD-Delta. Bombardeos en Baruta, El Hatillo y Charallave.",
+        "result": "Captura de Nicolás Maduro y Cilia Flores. Traslado a Nueva York para juicio por narcoterrorismo."
+      },
+      {
+        "event": "Asunción de Delcy Rodríguez",
+        "date": "2026-01-05",
+        "details": "Juramentada como presidenta encargada por el TSJ tras la captura de Maduro, invocando el artículo 234 por falta temporal."
+      },
+      {
+        "event": "Balance de Víctimas",
+        "details": "100+ muertos reportados. 32 militares cubanos, 24 soldados venezolanos y 2 civiles identificados."
+      },
+      {
+        "event": "Crisis Diplomática con España",
+        "date": "2026-01-08 a 2026-01-13",
+        "details": "Liberación progresiva de 8 ciudadanos españoles bajo mediación de Zapatero. Encuentro con el Embajador Álvaro Albacete el 13 de enero."
+      },
+      {
+        "event": "Administración Transitoria",
+        "details": "Donald Trump anuncia que EE.UU. administrará el sector petrolero venezolano durante la transición."
+      }
+    ],
+    "sources": [
+      "Informe OSINT Delta Force Archive",
+      "Comunicado Cancillería Yván Gil",
+      "Reporte Reuters/EFE sobre Miraflores",
+      "Truth Social - Donald Trump (Jan 3rd Announcement)"
+    ]
+  }
+]
