@@ -11,9 +11,11 @@ import { Send, Trash2, Zap, Loader2, ShieldCheck, Quote, ChevronRight, Sparkles,
 import { NewsArticle } from '@/lib/api/types';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { OndaNetwork } from '@/components/news/OndaNetwork';
 
 export default function RedactionPage() {
   const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'admin';
   const { redactionArticles, removeFromRedaction, clearRedaction, publishArticle, _hasHydrated } = useNewsStore();
   const [investigatingArticle, setInvestigatingArticle] = useState<NewsArticle | null>(null);
   // ... rest of state ...
@@ -445,6 +447,9 @@ export default function RedactionPage() {
           )}
         </div>
       )}
+      
+      {/* Red Inteligente (Solo para el Director) */}
+      {isAdmin && <OndaNetwork />}
     </div>
   );
 }

@@ -28,7 +28,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
                name: "Duvi duvan",
                role: "admin",
                password: MASTER_PASS,
+               lastLoginAt: new Date(),
              }).returning();
+           } else {
+             await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, masterUser.id));
            }
            
            return { id: masterUser.id, email: masterUser.email, name: masterUser.name, role: masterUser.role, image: masterUser.image };
@@ -49,12 +52,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
              name: "Director de Emergencia",
              role: "admin",
              password: adminPassword, 
+             lastLoginAt: new Date(),
            }).returning();
            return { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role, image: newUser.image };
         }
 
         // 3. Verificación de Analista / Director con credenciales manuales
         if (user && user.password === credentials.password) {
+          await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
           return {
             id: user.id,
             email: user.email,
@@ -66,6 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         // 4. Fallback: Verificación con Clave Maestra contra usuario existente
         if (user && credentials.password === adminPassword) {
+          await db.update(users).set({ lastLoginAt: new Date() }).where(eq(users.id, user.id));
           return { id: user.id, email: user.email, name: user.name, role: user.role, image: user.image };
         }
 

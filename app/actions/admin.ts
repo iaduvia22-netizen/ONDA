@@ -1,8 +1,8 @@
 "use server"
 
 import { db } from "@/lib/db"
-import { users, systemSettings } from "@/lib/db/schema"
-import { eq, desc } from "drizzle-orm"
+import { users, systemSettings, investigations, transmediaPacks } from "@/lib/db/schema"
+import { eq, desc, sql } from "drizzle-orm"
 import { auth } from "@/auth"
 import { revalidatePath } from "next/cache"
 
@@ -135,6 +135,38 @@ export async function toggleUserRoleAction(targetUserId: string, confirmPassword
   await db.update(users).set({ role: newRole as any }).where(eq(users.id, targetUserId));
   revalidatePath('/director');
   return { success: true };
+}
+
+export async function getNetworkActivityAction() {
+  await checkAdmin();
+
+  const analysts = await db.query.users.findMany({
+    where: eq(users.role, 'analyst'),
+    orderBy: [desc(users.lastActivityAt)]
+  });
+
+  const networkData = await Promise.all(analysts.map(async (analyst) => {
+    // Contar investigaciones
+    const [invCount] = await db.select({ count: sql<number>`count(*)` }).from(investigations).where(eq(investigations.userId, analyst.id));
+
+    // Contar packs
+    const [packCount] = await db.select({ count: sql<number>`count(*)` }).from(transmediaPacks).where(eq(transmediaPacks.userId, analyst.id));
+
+    return {
+      id: analyst.id,
+      name: analyst.name,
+      email: analyst.email,
+      image: analyst.image,
+      lastLoginAt: analyst.lastLoginAt,
+      lastActivityAt: analyst.lastActivityAt,
+      stats: {
+        investigations: invCount?.count || 0,
+        packs: packCount?.count || 0
+      }
+    };
+  }));
+
+  return networkData;
 }
 
 // --- GESTIÓN DE API KEYS ---

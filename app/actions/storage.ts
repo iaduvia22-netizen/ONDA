@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { investigations, transmediaPacks, users } from '@/lib/db/schema';
 import { auth } from '@/auth';
 import { revalidatePath } from 'next/cache';
+import { eq, desc } from 'drizzle-orm';
 
 /**
  * Guarda el Expediente Investigativo en la Base de Datos.
@@ -25,6 +26,9 @@ export async function saveInvestigationAction(title: string, reportContent: stri
       reportContent: reportContent,
       sourcesMetadata: JSON.stringify(images),
     });
+
+    // Actualizar última actividad del analista
+    await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, session.user.id));
 
     revalidatePath('/saved'); 
     return { success: true, id: investigationId };
@@ -54,6 +58,9 @@ export async function saveTransmediaPackAction(investigationId: string, packCont
       packContent: packContent,
       status: 'draft'
     });
+
+    // Actualizar última actividad del analista
+    await db.update(users).set({ lastActivityAt: new Date() }).where(eq(users.id, session.user.id));
     
     return { success: true, id: packId };
   } catch (error) {
@@ -61,8 +68,6 @@ export async function saveTransmediaPackAction(investigationId: string, packCont
      throw new Error("Fallo al guardar el pack transmedia.");
   }
 }
-
-import { eq, desc } from 'drizzle-orm';
 
 /**
  * Recupera todos los expedientes procesados en el sistema (Vista de Auditoría).

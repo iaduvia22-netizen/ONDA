@@ -11,8 +11,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNewsStore } from '@/lib/store/newsStore';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
+import { useSession } from 'next-auth/react';
+import { OndaNetwork } from '@/components/news/OndaNetwork';
 
 export default function ResearchPage() {
+  const { data: session } = useSession();
+  const isAdmin = (session?.user as any)?.role === 'admin';
   const router = useRouter();
   const { sendToRedaction } = useNewsStore();
   const [query, setQuery] = useState('');
@@ -255,6 +259,9 @@ export default function ResearchPage() {
           </div>
         )}
       </div>
+      
+      {/* Red Inteligente (Solo para el Director) */}
+      {isAdmin && <OndaNetwork />}
     </div>
   );
 }

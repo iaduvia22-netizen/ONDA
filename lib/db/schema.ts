@@ -14,6 +14,8 @@ export const users = sqliteTable("user", {
   image: text("image"),
   password: text("password"), // Contraseña para analistas
   role: text("role").default("analyst"), // Role personalizado para RR-ONDA
+  lastLoginAt: integer("last_login_at", { mode: "timestamp" }),
+  lastActivityAt: integer("last_activity_at", { mode: "timestamp" }),
 });
 
 export const accounts = sqliteTable(

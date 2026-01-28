@@ -3,10 +3,10 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Newspaper, TrendingUp, Search, Settings, Menu, MapPin, X, Bookmark, Send, Shield } from 'lucide-react';
+import { LayoutDashboard, Newspaper, TrendingUp, Search, Settings, Menu, MapPin, X, Bookmark, Send, Shield, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useState, useEffect } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 
 const mainNav = [
   { name: 'Núcleo de Control', href: '/', icon: LayoutDashboard },
@@ -206,6 +206,22 @@ export function Sidebar() {
                collapsed ? "opacity-0 w-0 hidden" : "opacity-100 w-auto"
             )}>
               Calibración
+            </span>
+          </button>
+
+          <button
+            onClick={() => signOut({ callbackUrl: '/login' })}
+            className={cn(
+              'text-white/20 hover:bg-red-500/10 flex w-full items-center gap-3 rounded-xl px-4 py-3 transition-all hover:text-red-500 relative overflow-hidden whitespace-nowrap group',
+              collapsed ? 'justify-center' : '',
+            )}
+          >
+            <LogOut size={22} className="shrink-0 transition-transform group-hover:scale-110" />
+            <span className={cn(
+               "text-[11px] font-black uppercase tracking-[0.2em] transition-all duration-300",
+               collapsed ? "opacity-0 w-0 hidden" : "opacity-100 w-auto"
+            )}>
+              Cerrar Sesión
             </span>
           </button>
         </div>
