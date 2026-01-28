@@ -64,14 +64,18 @@ export default function DirectorPage() {
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name || !newUser.email || !newUser.password) return;
+
+    const confirmPass = prompt(`🛡️ AUTORIZACIÓN DE RECLUTAMIENTO\n\nVas a crear una cuenta para ${newUser.name.toUpperCase()}.\nIngresa TU CONTRASEÑA de Director para autorizar:`);
+    if (!confirmPass) return;
+
     setIsCreating(true);
     try {
-      await createJournalistAction(newUser.name, newUser.email, newUser.password, newUser.role, newUser.image);
+      await createJournalistAction(newUser.name, newUser.email, newUser.password, newUser.role, confirmPass, newUser.image);
       toast.success("Miembro Reclutado", { description: `El acceso como ${newUser.role} ha sido habilitado.` });
       setNewUser({ name: '', email: '', password: '', image: '', role: 'analyst' });
       loadData();
     } catch (err: any) {
-      toast.error(err.message);
+      toast.error("Fallo de Autorización", { description: err.message });
     } finally {
       setIsCreating(false);
     }

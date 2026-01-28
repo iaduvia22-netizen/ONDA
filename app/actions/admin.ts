@@ -25,8 +25,21 @@ export async function getUsersAction() {
   });
 }
 
-export async function createJournalistAction(name: string, email: string, password: string, role: string = 'analyst', image?: string) {
-  await checkAdmin();
+export async function createJournalistAction(name: string, email: string, password: string, role: string = 'analyst', confirmPassword: string, image?: string) {
+  const session = await auth();
+  if (!session || !session.user) throw new Error("Sesión no válida.");
+
+  const adminUser = await db.query.users.findFirst({
+    where: eq(users.id, (session.user as any).id)
+  });
+
+  if (!adminUser || adminUser.role !== 'admin') {
+    throw new Error("No tienes permisos para esta operación.");
+  }
+
+  if (adminUser.password !== confirmPassword) {
+    throw new Error("Contraseña de autorización incorrecta.");
+  }
 
   // 1. Verificar límites de capacidad
   if (role === 'analyst') {
