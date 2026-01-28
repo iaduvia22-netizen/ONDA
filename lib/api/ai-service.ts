@@ -20,11 +20,11 @@ const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 // --- CONFIGURACIÓN DE MODELOS ROBUSTA ---
 const MODELS_TO_TRY = [
-    "gemini-2.0-flash",          
-    "gemini-1.5-flash",          
-    "gemini-1.5-flash-8b",       
-    "gemini-1.5-pro",            
-    "gemini-pro"                 
+    "gemini-1.5-pro-latest",
+    "gemini-1.5-pro",
+    "gemini-pro",
+    "gemini-1.5-flash",
+    "gemini-2.0-flash-exp",
 ];
 
 /**
@@ -65,10 +65,10 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
         lastError = error.message || "Error desconocido";
         console.warn(`[${contextName}] (Key ${keyIdx+1}) Fallo ${modelName}: ${lastError.split('[')[0]}`);
         
-        // Si el error NO es de cuota (429), tal vez valga la pena seguir con la misma llave.
-        // Pero si es 429, saltamos de una vez a la siguiente llave para ahorrar tiempo.
-        if (lastError.includes("429")) {
-          console.warn(`[${contextName}] Cuota agotada para Key ${keyIdx+1}. Saltando a siguiente llave...`);
+        // Si el error es de Cuota (429), Permisos (403) o Modelo No Encontrado (404),
+        // probablemente la llave no soportará otros modelos tampoco. Saltamos de llave.
+        if (lastError.includes("429") || lastError.includes("403") || lastError.includes("404") || lastError.includes("not found")) {
+          console.warn(`[${contextName}] Llave ${keyIdx+1} rechazada por el servidor (${lastError.split(' ')[0]}). Saltando a siguiente llave...`);
           break; // Rompe el loop de modelos y va a la siguiente llave
         }
       }
