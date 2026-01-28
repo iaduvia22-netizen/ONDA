@@ -8,8 +8,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { formatDistanceToNow, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { useSession } from 'next-auth/react';
 
 export function Header() {
+  const { data: session } = useSession();
   const { notifications, markAsRead, markAllAsRead, clearAll, removeNotification, triggerDailyReport } = useNotificationStore();
   const { saved, _hasHydrated } = useNewsStore();
   const [showNotifications, setShowNotifications] = useState(false);
@@ -168,12 +170,18 @@ export function Header() {
         <div className="bg-border mx-1 h-8 w-[1px]"></div>
 
         <button aria-label="Perfil del Analista" className="hover:bg-surface-hover flex items-center gap-3 rounded-xl p-2 transition-colors">
-          <div className="from-primary to-primary-dark shadow-primary/20 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr text-sm font-bold text-white shadow-lg">
-            F
+          <div className="from-primary to-primary-dark shadow-primary/20 flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr text-sm font-bold text-white shadow-lg overflow-hidden relative">
+            {session?.user?.image ? (
+              <img src={session.user.image} alt={session.user.name || "User"} className="w-full h-full object-cover" />
+            ) : (
+              <span>{session?.user?.name?.[0]?.toUpperCase() || "U"}</span>
+            )}
           </div>
           <div className="hidden text-left md:block">
-            <p className="text-sm font-medium text-white">Fabio</p>
-            <p className="text-text-muted text-xs">Admin</p>
+            <p className="text-sm font-medium text-white">{session?.user?.name || "Usuario Onda"}</p>
+            <p className="text-text-muted text-xs uppercase tracking-wider">
+              {(session?.user as any)?.role === 'admin' ? 'Director' : 'Analista'}
+            </p>
           </div>
         </button>
       </div>
