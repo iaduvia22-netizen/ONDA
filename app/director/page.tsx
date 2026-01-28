@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Shield, Users, Key, Save, Trash2, UserPlus, Zap, Crown, CheckCircle2, AlertTriangle, Loader2 } from 'lucide-react';
+import { Shield, Users, Key, Save, Trash2, UserPlus, Zap, Crown, CheckCircle2, AlertTriangle, Loader2, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { signOut } from 'next-auth/react';
 import { 
   getUsersAction, 
   createJournalistAction, 
@@ -148,7 +149,16 @@ export default function DirectorPage() {
               <Crown size={32} className="text-black" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">Consola del Director</h1>
+              <div className="flex items-center gap-4">
+                <h1 className="text-3xl font-black text-white tracking-tighter uppercase italic">Consola del Director</h1>
+                <button 
+                  onClick={() => signOut({ callbackUrl: '/login' })}
+                  className="p-2 bg-white/5 hover:bg-red-500/20 text-white/30 hover:text-red-500 rounded-xl transition-all group"
+                  title="Cerrar Sesión"
+                >
+                  <LogOut size={18} className="group-hover:scale-110 transition-transform" />
+                </button>
+              </div>
               <div className="flex items-center gap-2 mt-1">
                 <span className="text-[10px] font-mono text-primary uppercase tracking-[0.3em]">Nivel de Acceso: 01 (Master)</span>
                 <div className="w-1 h-1 rounded-full bg-primary/40" />
