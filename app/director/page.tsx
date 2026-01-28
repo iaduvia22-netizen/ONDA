@@ -10,8 +10,8 @@ import {
   createJournalistAction, 
   deleteUserAction, 
   getApiVaultAction, 
-  updateApiVaultAction 
-} from '@/app/actions/admin';
+  updateApiVaultAction,
+  toggleUserRoleAction} from '@/app/actions/admin';
 
 export default function DirectorPage() {
   const [activeTab, setActiveTab] = useState<'users' | 'vault'>('users');
@@ -88,6 +88,23 @@ export default function DirectorPage() {
       loadData();
     } catch (err: any) {
       toast.error("Fallo de Seguridad", { description: err.message });
+    }
+  };
+
+  const handleToggleRole = async (user: any) => {
+    const isPromoting = user.role === 'analyst';
+    const actionName = isPromoting ? "ASCENDER A DIRECTOR" : "DEGRADAR A ANALISTA";
+    
+    const confirmPass = prompt(`🛡️ CAMBIO DE RANGO\n\nVas a ${actionName} a ${user.name.toUpperCase()}.\nIngresa TU CONTRASEÑA para confirmar el cambio de jerarquía:`);
+    
+    if (!confirmPass) return;
+
+    try {
+      await toggleUserRoleAction(user.id, confirmPass);
+      toast.success("Rango Actualizado", { description: `${user.name} ahora es ${isPromoting ? 'Director' : 'Analista'}.` });
+      loadData();
+    } catch (err: any) {
+      toast.error("Error de Jerarquía", { description: err.message });
     }
   };
 
@@ -255,10 +272,23 @@ export default function DirectorPage() {
                             placeholder="periodista@ondaradio.com"
                           />
                         </div>
-                        <div>
-                          <label className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2 block">Contraseña de Acceso</label>
+                        <div className="relative group/field">
+                          <div className="flex justify-between items-center mb-2">
+                            <label className="text-[10px] font-black text-white/40 uppercase tracking-widest block">Contraseña de Acceso</label>
+                            <button 
+                              type="button"
+                              onClick={() => {
+                                const pass = `ONDA-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+                                setNewUser({...newUser, password: pass});
+                                toast.info("Contraseña Generada", { description: pass });
+                              }}
+                              className="text-[9px] font-bold text-primary hover:text-white transition-colors flex items-center gap-1 uppercase tracking-widest"
+                            >
+                              <Zap size={10} /> Generar Clave
+                            </button>
+                          </div>
                           <input 
-                            type="password" 
+                            type="text" 
                             required
                             value={newUser.password}
                             onChange={e => setNewUser({...newUser, password: e.target.value})}
@@ -333,14 +363,27 @@ export default function DirectorPage() {
                            </div>
                         </div>
 
-                        <div className="flex items-center gap-4">
-                           {user.role !== 'admin' && (
-                             <button 
-                               onClick={() => handleDeleteUser(user.id, user.name || "Sin nombre")}
-                               className="p-3 text-white/10 hover:text-white hover:bg-red-500 rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-lg"
-                             >
-                               <Trash2 size={18} />
-                             </button>
+                        <div className="flex items-center gap-2">
+                           {user.email !== "duviduvan22@gmail.com" && (
+                             <>
+                               <button 
+                                 onClick={() => handleToggleRole(user)}
+                                 className={cn(
+                                   "p-3 rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-lg border border-white/5",
+                                   user.role === 'admin' ? "text-purple-400 hover:bg-purple-500 hover:text-white" : "text-primary hover:bg-primary hover:text-black"
+                                 )}
+                                 title={user.role === 'admin' ? "Degradar a Analista" : "Ascender a Director"}
+                               >
+                                 <Zap size={18} />
+                               </button>
+                               <button 
+                                 onClick={() => handleDeleteUser(user.id, user.name || "Sin nombre")}
+                                 className="p-3 text-white/10 hover:text-white hover:bg-red-500 rounded-xl transition-all opacity-0 group-hover:opacity-100 shadow-lg border border-white/5"
+                                 title="Eliminar de la Red"
+                               >
+                                 <Trash2 size={18} />
+                               </button>
+                             </>
                            )}
                         </div>
                       </div>

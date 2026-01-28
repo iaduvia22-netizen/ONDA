@@ -85,6 +85,45 @@ export async function deleteUserAction(id: string, confirmPassword: string) {
   return { success: true };
 }
 
+export async function toggleUserRoleAction(targetUserId: string, confirmPassword: string) {
+  const session = await auth();
+  if (!session || !session.user) throw new Error("Sesión no válida.");
+  
+  const adminUser = await db.query.users.findFirst({
+    where: eq(users.id, (session.user as any).id)
+  });
+
+  if (!adminUser || adminUser.role !== 'admin') {
+    throw new Error("No tienes permisos para esta operación.");
+  }
+
+  if (adminUser.password !== confirmPassword) {
+    throw new Error("Contraseña incorrecta.");
+  }
+
+  const targetUser = await db.query.users.findFirst({
+    where: eq(users.id, targetUserId)
+  });
+
+  if (!targetUser) throw new Error("Miembro no encontrado.");
+  if (targetUser.email === "duviduvan22@gmail.com") throw new Error("No puedes cambiar el rango del Director Maestro.");
+
+  const newRole = targetUser.role === 'admin' ? 'analyst' : 'admin';
+
+  // Verificar límites antes de cambiar
+  if (newRole === 'admin') {
+    const admins = await db.query.users.findMany({ where: eq(users.role, 'admin') });
+    if (admins.length >= 2) throw new Error("Límite de Directores alcanzado (Máx 2).");
+  } else {
+    const analysts = await db.query.users.findMany({ where: eq(users.role, 'analyst') });
+    if (analysts.length >= 8) throw new Error("Límite de Analistas alcanzado (Máx 8).");
+  }
+
+  await db.update(users).set({ role: newRole as any }).where(eq(users.id, targetUserId));
+  revalidatePath('/director');
+  return { success: true };
+}
+
 // --- GESTIÓN DE API KEYS ---
 
 export async function getApiVaultAction() {
