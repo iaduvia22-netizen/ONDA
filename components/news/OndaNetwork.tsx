@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Users, Zap, Clock, Newspaper, Send, Shield, Activity, User } from 'lucide-react';
+import { Users, Zap, Clock, Newspaper, Send, Shield, Activity, User, Radar } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getNetworkActivityAction } from '@/app/actions/admin';
 import { cn } from '@/lib/utils';
@@ -144,16 +144,22 @@ export function OndaNetwork() {
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "relative group flex items-center justify-center w-14 h-14 rounded-2xl transition-all duration-500 shadow-2xl overflow-hidden",
-          isOpen ? "bg-white text-black rotate-90 scale-110" : "bg-primary text-black hover:scale-110 active:scale-95"
+          "relative group flex items-center justify-center w-16 h-16 rounded-full transition-all duration-500 shadow-[0_0_40px_rgba(34,197,94,0.2)] backdrop-blur-md border border-primary/30",
+          isOpen ? "bg-white text-black rotate-180 scale-110 border-white" : "bg-black/40 text-primary hover:bg-primary/20 hover:scale-105 active:scale-95 hover:border-primary/60"
         )}
       >
-        <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-        <div className="relative z-10">
-          <Users size={24} className={cn("transition-transform duration-500", isOpen && "-rotate-90 scale-75")} />
+        <div className="absolute inset-0 rounded-full border border-primary/20 animate-[ping_3s_cubic-bezier(0,0,0.2,1)_infinite] opacity-50" />
+        <div className="absolute inset-2 rounded-full border border-primary/10 border-dashed animate-[spin_10s_linear_infinite]" />
+        
+        <div className="relative z-10 flex flex-col items-center gap-0.5">
+          <Radar size={28} className={cn("transition-all duration-500", isOpen && "rotate-180 scale-75 text-black")} />
+          <span className={cn("text-[8px] font-black uppercase tracking-widest transition-all", isOpen ? "text-black scale-0 w-0 h-0" : "text-primary/60")}>
+            RED
+          </span>
         </div>
+
         {!isOpen && (
-          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full flex items-center justify-center border-2 border-black animate-pulse">
+          <div className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center border border-black shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-pulse">
             <div className="w-1 h-1 bg-white rounded-full" />
           </div>
         )}
