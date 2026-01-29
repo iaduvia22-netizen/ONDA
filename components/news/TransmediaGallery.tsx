@@ -102,10 +102,10 @@ export function TransmediaGallery({ content, title: mainTitle, images = [] }: Tr
 
       if (header.includes("INSTAGRAM")) {
           const slides = [
-            { id: '1', title: "ACTO 1: EL GANCHO", match: section.match(/SLIDE 1.*?\):\*\*\s*(.*)/i) },
-            { id: '2', title: "ACTO 2: EL HECHO", match: section.match(/SLIDE 2.*?\):\*\*\s*(.*)/i) },
-            { id: '3', title: "ACTO 3: EMPATÍA", match: section.match(/SLIDE 3.*?\):\*\*\s*(.*)/i) },
-            { id: '4', title: "ACTO 4: ACCIÓN", match: section.match(/SLIDE 4.*?\):\*\*\s*(.*)/i) }
+            { id: '1', title: "ACTO 1: EL GANCHO", match: section.match(/SLIDE\s*1.*?\):\*?\*?\s*(.*)/i) },
+            { id: '2', title: "ACTO 2: EL HECHO", match: section.match(/SLIDE\s*2.*?\):\*?\*?\s*(.*)/i) },
+            { id: '3', title: "ACTO 3: EMPATÍA", match: section.match(/SLIDE\s*3.*?\):\*?\*?\s*(.*)/i) },
+            { id: '4', title: "ACTO 4: ACCIÓN", match: section.match(/SLIDE\s*4.*?\):\*?\*?\s*(.*)/i) }
           ];
 
           slides.forEach(s => {
