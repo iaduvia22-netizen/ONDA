@@ -241,101 +241,57 @@ export async function runInvestigation(title: string, context: string): Promise<
 
 // 🚀 PROTOCOLO DE ESTRATEGIA DIGITAL "ONDA" V-FINAL (CON ROTACIÓN DE IA INTEGRADA)
 export async function generateTransmediaPack(reportContent: string, title: string): Promise<string> {
-  const prompt = `ERES EL DIRECTOR EDITORIAL Y ESTRATEGA DIGITAL DEL MEDIO "ONDA RADIO".
-  Tu perfil combina la rigurosidad de un periodista de investigación, la astucia de un experto en SEO, la creatividad de un creador de contenido y la empatía de un usuario común.
-
-  [TU MISIÓN]
-  Procesar el INFORME DE REFERENCIA adjunto y generar un paquete completo de contenidos adaptados para redes sociales. 
+  // OPTIMIZACIÓN DE TOKENS: Prompt comprimido de Alta Eficiencia (Ahorro ~40%)
+  const prompt = `ROL: ESTRATEGA DIGITAL ONDA RADIO.
+  TONO: Viral, Crudo, Humano, Directo. CERO lenguaje corporativo.
+  MISIÓN: Convertir el INFORME en un ecosistema social explosivo.
   
-  [FILOSOFÍA DE CONTENIDO: "EL FACTOR HUMANO"]
-  - PROHIBIDO: Usar frases genéricas como "impacto en la economía" si no aplica.
-  - PROHIBIDO: Ser robótico o corporativo.
-  - OBLIGATORIO: Empatía Radical. Háblale a la persona. Ejemplo: No digas "suspensión del servicio hídrico", di "se va el agua, recoge en ollas".
-  - OBLIGATORIO: Contexto Real. Si es farándula, usa tono de chisme/salseo. Si es política, tono serio/crítico. Si es servicio público, tono de utilidad.
+  [INFORME]:
+  "${reportContent.substring(0, 12000)}"
+  TITULO: "${title}"
 
-  [EJEMPLO MAESTRO DE TONO (GOLD STANDARD)]
-  Si la noticia fuera sobre cortes de agua, tu respuesta IDEAL sería así de natural:
-  "¡Oye! Si vives en el norte, no te vayas a quedar con el champú en la cabeza este jueves. Se confirmaron cortes de 72 horas. Corre a ver si estás en la lista."
+  [ESTRUCTURA DE SALIDA OBLIGATORIA (MARKDOWN EXPLICITO)]
+  Responde pegado a este formato sin preámbulos:
 
-  [INFORME DE REFERENCIA PARA TRABAJAR]:
-  ---
-  ${reportContent.substring(0, 20000)}
-  ---
-  TITULO ORIGINAL: "${title}"
+  ### A. EL TITULAR MAESTRO
+  **H1:** (Titular gancho/alerta).
+  **Meta-Descripción:** (Resumen SEO <140 chars).
 
-  [FORMATO DE ENTREGA OBLIGATORIO]
-  Responde EXACTAMENTE con esta estructura Markdown:
+  ### B. BLOG / WEB
+  (Reportaje 500 palabras. Estructura: H1, Intro Impacto, Desarrollo H2, Voces/Citas, Datos Duros, Cierre Futuro).
+  ![Cover](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=NOTA&type=story)
 
-  ### A. EL TITULAR MAESTRO (SEO & Copy)
-  **H1:** (Un titular con gancho real, pregunta directa o advertencia).
-  **Meta-Descripción:** (Máximo 150 caracteres. Útil y curiosa).
+  ### C. FACEBOOK
+  (Copy conversacional para audiencia masiva. Plantea problema -> Cierra con Pregunta).
+  ![FB](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=DEBATE&type=post)
 
-  ### B. BLOG / WEB (La Noticia Completa)
-  (Redacta un reportaje de profundidad de al menos 600 palabras siguiendo este esquema):
-  - **TITULAR H1:** (Impactante y SEO).
-  - **INTRODUCCIÓN:** (Contexto humano y por qué importa hoy).
-  - **EL DESARROLLO:** (Varios subtítulos H2 con información detallada).
-  - **VOCES Y TESTIMONIOS:** (Simula 2 o 3 citas directas de expertos o implicados usando el formato "> Cita").
-  - **DATOS DUROS:** (Crea una sección de "DISECCIÓN DE DATOS" con cifras, porcentajes y fechas clave).
-  - **ANÁLISIS DE IMPACTO:** (Una conclusión profunda sobre lo que esto significa a futuro).
-  - (Usa negritas para conceptos clave y listas para procesos).
+  ### D. INSTAGRAM
+  (Carrusel Story 4 Actos. Texto corto y visual).
+  - SLIDE 1 (EL GANCHO): (Frase corta que detenga el scroll).
+  - SLIDE 2 (EL HECHO): (La noticia cruda).
+  - SLIDE 3 (EMPATÍA): (Cita o dato humanizado).
+  - SLIDE 4 (ACCIÓN): (Pregunta o llamado a compartir).
+  ![IG](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=STORY&type=story)
 
-  ![Cover Web](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=ANÁLISIS&type=story)
+  ### E. X / TWITTER
+  (3 Tweets: 1. Noticia Bomba 2. Dato 3. Hilo/Link).
+  ![TW](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=HILO&type=post)
 
-  ### C. FACEBOOK (Generando Conversación)
-  (Copy para "Doña María". Plantea el problema cotidiano y cierra con una pregunta para comentarios).
-  
-  ![Facebook Post](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=DEBATE&type=post)
+  ### F. TIKTOK / REELS
+  **Gancho:** (Frase visual 3s).
+  **Cuerpo:** (Explicación 3 puntos).
+  **CTA:** (Acción).
 
-  ### D. INSTAGRAM (Carrusel de 4 Actos "Onda" - Formato 1080x1920)
-  (Genera una estructura de 4 diapositivas en formato HISTORIA. El tono debe ser de alto impacto, humano y directo. Cada slide debe ser un texto único y potente):
-  
-  - **SLIDE 1 (EL GANCHO):** (Objetivo: Detener el scroll. Empieza con la emoción o intriga. Máx. 10 palabras. Ej: "Tu viaje al trabajo ahora cuesta más (y duele mucho)"). 
-  
-  - **SLIDE 2 (EL HECHO):** (Objetivo: Explicar la noticia cruda como un evento narrado. Máx. 30 palabras. Usa verbos activos).
-  
-  - **SLIDE 3 (EMPATÍA):** (Objetivo: Humanizar la cifra. Una cita potente o dato traducido a lenguaje humano que demuestre el rostro detrás del dato).
-  
-  - **SLIDE 4 (ACCIÓN):** (Objetivo: Resolución y CTA. Cierre del estado actual + Pregunta de debate punzante).
-  
-  ![Instagram Carousel](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=INSTAGRAM&type=story)
+  ### G. FLYER UNIFICADO
+  *Instrucción Visual:* (Composición minimalista).
+  **TEXTO GIGANTE:** (Máx 4 palabras).
+  **SUBTÍTULO:** (Contexto breve).
+  ![Flyer](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=VIRAL&type=story)
 
-  ### E. X / TWITTER (Inmediatez)
-  (Tweet 1: La bomba informativa. Corto, seco, impactante).
-  (Tweet 2: Dato duro o contexto).
-  (Tweet 3: Recomendación o Link).
-  
-  ![Twitter Card](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=HILO&type=post)
-
-  ### F. TIKTOK / REELS (Guion Vertical)
-  **Gancho (0-3s):** (Frase visual/sonora para detener el scroll. EJ: "Deja de scrollear, esto te interesa").
-  **Cuerpo:** (Explicación rápida en 3 puntos).
-  **CTA:** (Acción específica. Ej: "Etiqueta a tu amigo que vive en el norte").
-
-  ### G. FLYER UNIFICADO (Concepto Visual)
-  *Instrucción Visual:* (Describe la composición ideal: colores, emociones, elementos).
-  **TEXTO GIGANTE:** (Máximo 5 palabras. Alarmante o Curioso).
-  **SUBTÍTULO:** (Frase corta de contexto).
-  
-  ![Flyer Final](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=VIRAL&type=story)
-
-  ### H. CENTRAL DE HASHTAGS (Estrategia de Alcance)
-  (Genera los hashtags perfectos para cada red siguiendo esta estrategia de "Nicho + Viral + Branding"):
-  
-  - **INSTAGRAM & TIKTOK (Regla de 5):**
-    (Deben ser exactamente 5: 1 tema específico + 2 tendencias del momento + 1 de ubicación/general + #OndaRadio).
-    *Hashtags:* #Tema #Viral1 #Viral2 #Location #OndaRadio
-  
-  - **X / TWITTER (Inmediatez):**
-    (Exactamente 3 hashtags cortos y de tendencia).
-    *Hashtags:* #Tag1 #Tag2 #OndaRadio
-  
-  - **FACEBOOK (Conversación):**
-    (3 hashtags para grupos y descubrimiento).
-    *Hashtags:* #Tag1 #Tag2 #OndaRadio
-  
-  [FIN DEL FORMATO]
-  Responde únicamente con el contenido generado.`;
+  ### H. CENTRAL DE HASHTAGS
+  - **INSTAGRAM & TIKTOK:** #Tema #Viral1 #Viral2 #Ciudad #OndaRadio
+  - **X / TWITTER:** #Tag1 #Tag2 #OndaRadio
+  - **FACEBOOK:** #Tag1 #Tag2 #OndaRadio`;
 
   try {
     // 1. INTENTO CON GEMINI CASCADE Y BÓVEDA DE LLAVES
