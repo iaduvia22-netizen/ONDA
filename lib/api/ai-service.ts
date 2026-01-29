@@ -27,10 +27,21 @@ const MODELS_TO_TRY = [
     "gemini-2.0-flash-exp",
 ];
 
+import * as fs from 'fs';
+import * as path from 'path';
+
+function logToFile(message: string) {
+  const logPath = path.join(process.cwd(), 'ai-debug.log');
+  const timestamp = new Date().toISOString();
+  fs.appendFileSync(logPath, `[${timestamp}] ${message}\n`);
+}
+
 /**
  * Función Maestra de Cascada: Prueba múltiples llaves de la Bóveda y múltiples modelos.
  */
 async function generateWithVaultRotation(prompt: string, contextName: string): Promise<{text: string | null, lastError: string | null}> {
+  logToFile(`[${contextName}] STARTING GENERATION. Prompt len: ${prompt.length}`);
+
   // 1. Obtener llaves de la Bóveda
   let vaultKeys: string[] = [];
   try {
@@ -38,36 +49,57 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
     vaultKeys = settings
       .filter(s => s.key.startsWith('key') && s.value.trim().length > 0)
       .map(s => s.value);
-  } catch (e) {
+    logToFile(`[${contextName}] Vault keys loaded: ${vaultKeys.length}`);
+  } catch (e: any) {
+    logToFile(`[${contextName}] ERROR loading vault: ${e.message}`);
     console.warn(`[${contextName}] No se pudo acceder a la Bóveda DB.`);
   }
 
   // Combinar con la llave por defecto al principio
   const allKeys = [...(DEFAULT_GEMINI_API_KEY ? [DEFAULT_GEMINI_API_KEY] : []), ...vaultKeys];
   
-  if (allKeys.length === 0) return { text: null, lastError: "No hay configurada ninguna llave de API de Gemini." };
+  if (allKeys.length === 0) {
+    logToFile(`[${contextName}] ABORT: No keys available.`);
+    return { text: null, lastError: "No hay configurada ninguna llave de API de Gemini." };
+  }
 
   let lastError = null;
 
   // LOOP 1: Rotación de Llaves (API Keys)
   for (const [keyIdx, apiKey] of allKeys.entries()) {
+    const maskedKey = apiKey.substring(0, 5) + '...' + apiKey.substring(apiKey.length - 3);
+    logToFile(`[${contextName}] Trying Key ${keyIdx+1}/${allKeys.length} (${maskedKey})`);
+
     const genAI = new GoogleGenerativeAI(apiKey);
     
     // LOOP 2: Rotación de Modelos para esta llave
     for (const modelName of MODELS_TO_TRY) {
       try {
+        logToFile(`[${contextName}]   Trying model: ${modelName}`);
         console.log(`[${contextName}] (Key ${keyIdx+1}/${allKeys.length}) Intentando modelo: ${modelName}...`);
+        
         const model = genAI.getGenerativeModel({ model: modelName });
+        
+        // Timeout handling manually if needed, but generateContent usually throws
         const result = await model.generateContent(prompt);
         const text = result.response.text();
-        if (text && text.trim().length > 0) return { text, lastError: null };
+        
+        if (text && text.trim().length > 0) {
+           logToFile(`[${contextName}]   SUCCESS with ${modelName}. Output len: ${text.length}`);
+           return { text, lastError: null };
+        } else {
+           logToFile(`[${contextName}]   EMPTY RESPONSE from ${modelName}`);
+        }
+
       } catch (error: any) {
         lastError = error.message || "Error desconocido";
+        logToFile(`[${contextName}]   FAILED ${modelName}: ${lastError}`);
         console.warn(`[${contextName}] (Key ${keyIdx+1}) Fallo ${modelName}: ${lastError.split('[')[0]}`);
         
         // Si el error es de Cuota (429), Permisos (403) o Modelo No Encontrado (404),
         // probablemente la llave no soportará otros modelos tampoco. Saltamos de llave.
         if (lastError.includes("429") || lastError.includes("403") || lastError.includes("404") || lastError.includes("not found")) {
+          logToFile(`[${contextName}]   CRITICAL ERROR (4xx/429). Skipping key.`);
           console.warn(`[${contextName}] Llave ${keyIdx+1} rechazada por el servidor (${lastError.split(' ')[0]}). Saltando a siguiente llave...`);
           break; // Rompe el loop de modelos y va a la siguiente llave
         }
@@ -75,6 +107,7 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
     }
   }
   
+  logToFile(`[${contextName}] ALL ATTEMPTS FAILED.`);
   return { text: null, lastError };
 }
 
