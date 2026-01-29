@@ -19,10 +19,8 @@ const DEFAULT_GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 const MODELS_TO_TRY = [
+    "gemini-2.5-flash",
     "gemini-2.0-flash",
-    "gemini-2.0-flash-001",
-    "gemini-1.5-flash", 
-    "gemini-1.5-pro",
 ];
 
 import * as fs from 'fs';
