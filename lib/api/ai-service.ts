@@ -14,13 +14,13 @@ export interface InvestigationResult {
   entitiesMatched: string[];
 }
 
-const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-const DEFAULT_GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_1 || "";
-const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
+const TAVILY_API_KEY = "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";
+const DEFAULT_GEMINI_API_KEY = "AIzaSyCPDUiCsNXXToaFt0paWYAE4mT9Z3idm90";
+const OLLAMA_HOST = 'http://localhost:11434';
 
 const MODELS_TO_TRY = [
-    "gemini-2.5-flash",
-    "gemini-2.0-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro",
 ];
 
 
