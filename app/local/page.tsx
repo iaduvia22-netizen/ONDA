@@ -18,9 +18,9 @@ export default function LocalPage() {
     const loadLocalNews = async () => {
       setLoading(true);
       try {
-        // Consultamos específicamente por regiones locales
+        // Consultamos específicamente por regiones locales con bandera 'co' forzada
         const query = 'Soacha OR Cundinamarca OR Bogotá OR Colombia';
-        const news = await fetchNewsAction(undefined, query);
+        const news = await fetchNewsAction(undefined, query, 'co');
         setArticles(news);
 
         if (news.length > 0) {

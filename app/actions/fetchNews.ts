@@ -3,74 +3,108 @@
 import { NewsArticle } from '@/lib/api/types';
 
 const API_KEY = process.env.NEWSDATA_API_KEY;
-const BASE_URL = 'https://newsdata.io/api/1/news';
+const BASE_URL = 'https://newsdata.io/api/1/latest';
 
-export async function fetchNewsAction(category?: string, query?: string): Promise<NewsArticle[]> {
+export async function fetchNewsAction(category?: string, query?: string, countryCode?: string): Promise<NewsArticle[]> {
   if (!API_KEY) {
     console.warn('⚠️ API Key no encontrada en el servidor (process.env.NEWSDATA_API_KEY is undefined)');
     return [];
   }
 
-  console.log(`📡 Fetching news... Category: ${category || 'ALL'}, Query: ${query || 'NONE'}`);
+  console.log(`📡 [ONDA] Fetching LATEST news... Category: ${category || 'ALL'}, Query: ${query || 'NONE'}`);
 
   const params = new URLSearchParams();
   params.append('apikey', API_KEY);
-  params.append('language', 'es'); // Forzamos español
+  params.append('language', 'es');
   
-  // Prioridad: 1. Busqueda, 2. Categoria, 3. Defecto (Colombia)
-  if (query) {
+  // 1. LIMITACIONES DE CAPA GRATUITA DE NEWSDATA.IO:
+  // No permiten usar "country" y "q" a la vez. 
+  // Por tanto, si nos piden país (Sonda Regional), extraemos todo CO y filtramos localmente.
+  // Si no nos piden país (Flujo de Onda/Global), inyectamos "q" directamente al ruteo de red.
+
+  if (countryCode) {
+    // Modo: Sonda Regional Estricta
+    params.append('country', countryCode);
+  } else if (query) {
+    // Modo: Búsqueda Global 
     params.append('q', query);
-  } else if (category && category !== 'general') {
+  }
+  
+  // 2. Aplicamos Categoría si existe
+  if (category && category !== 'general') {
     params.append('category', category);
-  } else {
-    params.append('country', 'co');
   }
 
   try {
     const res = await fetch(`${BASE_URL}?${params.toString()}`, {
-        next: { revalidate: 3600 } // Cache por 1 hora para ahorrar créditos
+      cache: 'no-store', // Siempre datos frescos, sin caché
     });
 
     if (!res.ok) {
-        throw new Error(`Error API: ${res.status}`);
+      const errorBody = await res.text();
+      console.error(`❌ API Error ${res.status}:`, errorBody);
+      throw new Error(`Error API: ${res.status}`);
     }
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (!data.results) return [];
+    if (data.status !== 'success' || !data.results) {
+      console.warn('⚠️ API response sin resultados:', data.status);
+      return [];
+    }
 
-      interface NewsApiItem {
-        article_id: string;
-        title: string;
-        description: string;
-        content: string;
-        link: string;
-        image_url: string;
-        pubDate: string;
-        source_id: string;
-        source_url: string;
-        category?: string[];
-        country?: string[];
+    let results = data.results;
+
+    // 3. FILTRO INTERNO (PROGRAMÁTICO): Si pedimos un país estricto, 
+    // filtramos la búsqueda de forma local porque NewsData prohíbe usar 'q' a la vez.
+    if (countryCode && query) {
+      const terms = query.split(' OR ').map(t => t.trim().toLowerCase());
+      
+      const isBroadQuery = terms.includes('colombia') || terms.includes('colombia nacional');
+      
+      if (!isBroadQuery) {
+        results = results.filter((item: any) => {
+          const textToSearch = `${item.title || ''} ${item.description || ''} ${item.content || ''}`.toLowerCase();
+          return terms.some(term => textToSearch.includes(term));
+        });
       }
+    }
 
-      return data.results.map((item: NewsApiItem) => ({
-        id: item.article_id,
-        title: item.title,
-        description: item.description,
-        content: item.content,
-        url: item.link,
-        image: item.image_url,
-        publishedAt: item.pubDate,
-        source: {
-          name: item.source_id,
-          url: item.source_url,
-        },
-        category: item.category?.[0],
-        country: item.country?.[0],
+    console.log(`✅ [ONDA] ${results.length} noticias listas recibidas (De ${data.totalResults} disponibles)`);
+
+    interface NewsApiItem {
+      article_id: string;
+      title: string;
+      description: string;
+      content: string;
+      link: string;
+      image_url: string;
+      pubDate: string;
+      source_id: string;
+      source_url: string;
+      category?: string[];
+      country?: string[];
+    }
+
+    // RETORNAMOS la variable filtrada localmente 'results', no el 'data.results'
+    return results.map((item: NewsApiItem) => ({
+      id: item.article_id,
+      title: item.title,
+      description: item.description || '',
+      content: item.content || '',
+      url: item.link,
+      image: item.image_url,
+      publishedAt: item.pubDate,
+      source: {
+        name: item.source_id,
+        url: item.source_url,
+      },
+      category: item.category?.[0],
+      country: item.country?.[0],
     }));
 
   } catch (error) {
-    console.error('Error fetching news:', error);
+    console.error('❌ [ONDA] Error fetching news:', error);
     return [];
   }
 }

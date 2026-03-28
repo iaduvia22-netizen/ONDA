@@ -22,12 +22,14 @@ export function GlobeDemo({ articles = [] }: GlobeDemoProps) {
   const router = useRouter();
 
   // Generate markers based on article country or default to Colombia but spread out
-  const markers: { location: [number, number]; size: number }[] = articles.length > 0 ? articles.map(a => {
-      // Simulate slight variation so they don't stack perfectly
+  const markers: { location: [number, number]; size: number }[] = articles.length > 0 ? articles.map((a, idx) => {
+      // Spread determinístico basado en el índice para evitar mismatch de hidratación
       const countryCode = a.country?.toLowerCase() || 'co';
       const baseLoc = LOCATIONS[countryCode] || LOCATIONS['default'];
+      const offsetLat = ((idx * 7 + 3) % 50 - 25) / 10; // Rango: -2.5 a 2.5
+      const offsetLng = ((idx * 13 + 7) % 50 - 25) / 10;
       return {
-          location: [baseLoc[0] + (Math.random() * 5 - 2.5), baseLoc[1] + (Math.random() * 5 - 2.5)] as [number, number],
+          location: [baseLoc[0] + offsetLat, baseLoc[1] + offsetLng] as [number, number],
           size: 0.05
       };
   }) : [

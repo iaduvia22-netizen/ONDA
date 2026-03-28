@@ -41,8 +41,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es">
-      <body className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased selection:bg-primary/30`}>
+    <html lang="es" suppressHydrationWarning>
+      <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} bg-background text-foreground antialiased selection:bg-primary/30`}>
         <AuthProvider>
           <Toaster position="top-center" expand={false} richColors theme="dark" />
           <div className="flex h-screen w-full bg-background transition-all duration-300 ease-in-out">

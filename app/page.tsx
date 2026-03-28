@@ -14,14 +14,11 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Carga inicial de noticias usando Server Action
+  // Carga inicial de noticias usando Server Action (siempre datos frescos)
   useEffect(() => {
     if (!_hasHydrated) return;
 
     const loadNews = async () => {
-      // Si ya hay artículos cargados (ej. por navegación), no recargamos para ahorrar API calls
-      if (articles.length > 0) return;
-
       setIsLoading(true);
       setError(null);
       
@@ -42,7 +39,7 @@ export default function Home() {
     };
 
     loadNews();
-  }, [setArticles, articles.length, _hasHydrated]);
+  }, [setArticles, _hasHydrated]);
 
   if (!_hasHydrated) {
     return (

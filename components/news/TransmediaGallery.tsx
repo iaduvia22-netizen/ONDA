@@ -4,9 +4,11 @@ import React, { useMemo, useState } from 'react';
 import { BlogPostCard } from '@/components/ui/blog-post-card';
 import { ArticleCard } from '@/components/ui/article-card';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Copy, Share2, CheckCircle, Quote, Download, Image as ImageIcon, Smartphone, Monitor, Zap } from 'lucide-react';
+import { X, Copy, Download, Image as ImageIcon, Smartphone, Monitor, Zap, Pencil, Quote } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { toPng } from 'html-to-image';
+import { VideoGenerator } from './VideoGenerator';
 
 interface TransmediaGalleryProps {
   content: string;
@@ -27,8 +29,9 @@ interface TransmediaItem {
 interface VisualAssetData {
   bigText: string;
   subtitle: string;
-  visualInstruction: string;
+  visualInstruction?: string;
   gridPoints?: string[];
+  isHook?: boolean;
 }
 
 export function TransmediaGallery({ content, title: mainTitle, images = [] }: TransmediaGalleryProps) {
@@ -46,15 +49,15 @@ export function TransmediaGallery({ content, title: mainTitle, images = [] }: Tr
   const { items, flyerData, instagramCarousel, hashtagData } = useMemo(() => { 
     const sections = content.split('###').filter(s => s.trim().length > 0);
     const parsedSocialItems: TransmediaItem[] = [];
-    let instagramCarouselParsed: { title: string, content: string, gridPoints?: string[] }[] = [];
-    let parsedHashtags: { platform: string, tags: string }[] = [];
+    const instagramCarouselParsed: { title: string, content: string, gridPoints?: string[] }[] = [];
+    const parsedHashtags: { platform: string, tags: string }[] = [];
     
     // Contenedores para la Nota Web Enriquecida
     let webHeadline = "";
     let webBody = "";
     let webImage = "";
     
-    let flyerParsed: VisualAssetData = { bigText: mainTitle, subtitle: "Cobertura Especial Onda Radio", visualInstruction: "" };
+    const flyerParsed: VisualAssetData = { bigText: mainTitle, subtitle: "Cobertura Especial Onda Radio", visualInstruction: "" };
 
     sections.forEach((section, index) => {
       const lines = section.trim().split('\n');
@@ -64,7 +67,7 @@ export function TransmediaGallery({ content, title: mainTitle, images = [] }: Tr
       const imageMatch = remainingText.match(/!\[.*?\]\((.*?)\)/);
       const imageUrl = imageMatch ? imageMatch[1] : undefined;
       
-      let cleanBody = remainingText.replace(/!\[.*?\]\(.*?\)/g, '').trim();
+      const cleanBody = remainingText.replace(/!\[.*?\]\(.*?\)/g, '').trim();
 
       // PARSING DE HASHTAGS (Nuevo)
       if (header.includes("HASHTAG") || header.includes("CENTRAL DE")) {
@@ -282,24 +285,34 @@ export function TransmediaGallery({ content, title: mainTitle, images = [] }: Tr
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-10 max-w-4xl mx-auto">
-              {instagramCarousel.map((slide, idx) => (
-                <AssetPreview 
-                  key={`ig-slide-${idx}`}
-                  title={slide.title}
-                  format="9:16"
-                  dims="1080x1920"
-                  icon={<Smartphone size={16} />}
-                  aspect="aspect-[9/16]"
-                  bgImage={carouselImages[idx] || masterImage || images[idx % images.length] || defaultBg}
-                  flyerData={{ 
-                    bigText: slide.content, 
-                    subtitle: idx === 0 ? "DESLIZA" : "onda radio",
-                    gridPoints: slide.gridPoints
-                  }}
-                  type="story"
-                />
-              ))}
+              {instagramCarousel.map((slide, idx) => {
+                const isHook = idx === 0;
+                return (
+                  <AssetPreview 
+                    key={`ig-slide-${idx}`}
+                    title={slide.title}
+                    format="9:16"
+                    dims="1080x1920"
+                    icon={<Smartphone size={16} />}
+                    aspect="aspect-[9/16]"
+                    bgImage={carouselImages[idx] || masterImage || images[idx % images.length] || defaultBg}
+                    flyerData={{ 
+                      bigText: slide.content, 
+                      subtitle: "",
+                      gridPoints: slide.gridPoints,
+                      isHook: isHook,
+                    }}
+                    type="story"
+                  />
+                );
+              })}
             </div>
+
+            {/* SECCIÓN 2.5: MOTOR DE RENDERIZADO WEB VIDEO COMPONENT */}
+            <div className="max-w-5xl mx-auto">
+               <VideoGenerator slides={instagramCarousel} images={carouselImages} />
+            </div>
+
           </div>
         )}
 
@@ -468,7 +481,7 @@ export function TransmediaGallery({ content, title: mainTitle, images = [] }: Tr
               <motion.div key={item.id} variants={itemVariants}>
                   <BlogPostCard 
                       tag={item.tag}
-                      date={new Date().toLocaleDateString()}
+                      date="Hoy"
                       title={item.title}
                       description={item.description}
                       imageUrl={item.imageUrl}
@@ -501,28 +514,258 @@ export function TransmediaGallery({ content, title: mainTitle, images = [] }: Tr
 }
 
 // --- SUB-COMPONENTE: PREVIEW DE ASSETS VISUALES ---
-import { toPng } from 'html-to-image';
 
-function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, type }: any) {
+// Mapa de dimensiones exactas por formato
+const FORMAT_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  '9:16':    { width: 1080, height: 1920 },
+  '1:1':     { width: 1080, height: 1080 },
+  '4:5':     { width: 1080, height: 1350 },
+  '1.91:1':  { width: 1200, height: 628 },
+};
+
+interface AssetPreviewProps {
+  title: string;
+  format: string;
+  dims: string;
+  icon: React.ReactNode;
+  aspect: string;
+  bgImage: string | undefined;
+  flyerData: VisualAssetData | undefined;
+  type: string;
+}
+
+function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, type }: AssetPreviewProps) {
   const isIGCarousel = title.startsWith("ACTO");
   const isStory = type === 'story' || title === 'Portrait' || isIGCarousel;
   const ref = React.useRef<HTMLDivElement>(null);
+  
+  // Estado para edición de texto en línea
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableText, setEditableText] = useState<string>(flyerData?.bigText || '');
+  const [editableSubtitle, setEditableSubtitle] = useState<string>(flyerData?.subtitle || '');
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
+  // Sincronizar si el flyerData cambia externamente
+  React.useEffect(() => {
+    setEditableText(flyerData?.bigText || '');
+    setEditableSubtitle(flyerData?.subtitle || '');
+  }, [flyerData?.bigText, flyerData?.subtitle]);
+
+  const startEditing = () => {
+    setIsEditing(true);
+    setTimeout(() => textareaRef.current?.focus(), 100);
+  };
+
+  const confirmEdit = () => {
+    setIsEditing(false);
+  };
+
+  // El texto que se usa tanto para render como para descarga
+  const displayText = editableText || flyerData?.bigText || '';
+  const displaySubtitle = editableSubtitle || flyerData?.subtitle || '';
+
+  // Función mágica: Convierte **texto** en letras verdes brillantes
+  const renderStyledText = (text: string) => {
+    if (!text) return text;
+    // Separa el texto usando los delimitadores dobles **
+    const parts = text.split(/\*\*(.*?)\*\*/g);
+    return parts.map((part, index) => {
+      // Los índices impares son los que estaban dentro de los **
+      if (index % 2 === 1) {
+        return (
+          <span key={index} className="text-primary font-black drop-shadow-[0_0_12px_rgba(202,251,72,0.8)]">
+            {part}
+          </span>
+        );
+      }
+      return part;
+    });
+  };
   const handleDownload = async () => {
     if (ref.current === null) return;
 
+    const targetDims = FORMAT_DIMENSIONS[format] || { width: 1080, height: 1080 };
+    // Calcular pixelRatio para obtener resolución exacta
+    const currentWidth = ref.current.offsetWidth;
+    const pixelRatio = Math.max(2, Math.ceil(targetDims.width / currentWidth));
+
     toast.promise(
-      toPng(ref.current, { cacheBust: true, pixelRatio: 3 })
-        .then((dataUrl) => {
-          const link = document.createElement('a');
-          link.download = `onda-studio-${type}-${dims}-${Date.now()}.png`;
-          link.href = dataUrl;
-          link.click();
-        }),
+      (async () => {
+        try {
+          // Intentar con html-to-image (método principal)
+          const dataUrl = await toPng(ref.current!, {
+            cacheBust: true,
+            pixelRatio: pixelRatio,
+            width: ref.current!.offsetWidth,
+            height: ref.current!.offsetHeight,
+            style: {
+              transform: 'scale(1)',
+              transformOrigin: 'top left',
+            },
+            filter: (node: HTMLElement) => {
+              // Filtrar elementos problemáticos con CORS y UI de edición
+              if (node.tagName === 'LINK' && (node as HTMLLinkElement).rel === 'stylesheet') return false;
+              if (node.dataset?.excludeFromPng === 'true') return false;
+              return true;
+            },
+          });
+
+          // Crear canvas con dimensiones exactas para reescalar
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          
+          await new Promise<void>((resolve, reject) => {
+            img.onload = () => resolve();
+            img.onerror = () => reject(new Error('Failed to load rendered image'));
+            img.src = dataUrl;
+          });
+
+          const canvas = document.createElement('canvas');
+          canvas.width = targetDims.width;
+          canvas.height = targetDims.height;
+          const ctx = canvas.getContext('2d')!;
+          
+          // Fondo negro por si la imagen no cubre todo
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Dibujar la imagen escalada a las dimensiones exactas
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+          const sanitizedTitle = (displayText || title || 'asset')
+            .replace(/[^a-zA-Z0-9áéíóúñ\s]/gi, '')
+            .trim()
+            .replace(/\s+/g, '-')
+            .substring(0, 40)
+            .toLowerCase();
+            
+          await new Promise<void>((resolve) => {
+            canvas.toBlob((blob) => {
+               if (blob) {
+                 const url = window.URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.download = `Onda-${type}-${format.replace(':', 'x')}-${sanitizedTitle}.png`;
+                 link.href = url;
+                 link.click();
+                 // Limpiar memoria
+                 setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+               }
+               resolve();
+            }, 'image/png', 1.0);
+          });
+
+        } catch (primaryError) {
+          console.warn('[ONDA Studio] html-to-image falló, usando canvas fallback:', primaryError);
+          
+          // FALLBACK: Renderizar manualmente con canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = targetDims.width;
+          canvas.height = targetDims.height;
+          const ctx = canvas.getContext('2d')!;
+          
+          // Fondo negro
+          ctx.fillStyle = '#000000';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Intentar dibujar la imagen de fondo
+          const finalImage = (typeof bgImage === 'string' && bgImage.trim() !== '') 
+            ? bgImage 
+            : 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072';
+          
+          try {
+            const bgImg = new Image();
+            bgImg.crossOrigin = 'anonymous';
+            const proxyUrl = finalImage.includes('images.weserv.nl')
+              ? finalImage
+              : `https://images.weserv.nl/?url=${encodeURIComponent(finalImage)}&n=-1`;
+            
+            await new Promise<void>((resolve) => {
+              bgImg.onload = () => {
+                // Cover: escalar y centrar
+                const scale = Math.max(canvas.width / bgImg.width, canvas.height / bgImg.height);
+                const w = bgImg.width * scale;
+                const h = bgImg.height * scale;
+                ctx.globalAlpha = 0.6;
+                ctx.drawImage(bgImg, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+                ctx.globalAlpha = 1;
+                resolve();
+              };
+              bgImg.onerror = () => resolve(); // Continuar sin imagen
+              bgImg.src = proxyUrl;
+            });
+          } catch { /* continuar sin imagen */ }
+          
+          // Overlay gradiente
+          const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+          gradient.addColorStop(0, 'rgba(0,0,0,0.4)');
+          gradient.addColorStop(0.5, 'rgba(0,0,0,0.2)');
+          gradient.addColorStop(1, 'rgba(0,0,0,0.85)');
+          ctx.fillStyle = gradient;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          
+          // Texto principal
+          const fontSize = isStory ? 72 : (type === 'link' ? 48 : 60);
+          ctx.font = `900 ${fontSize}px Inter, system-ui, sans-serif`;
+          ctx.fillStyle = '#FFFFFF';
+          ctx.textAlign = 'center';
+          
+          const text = displayText || title;
+          const maxWidth = canvas.width - 120;
+          const words = text.split(' ');
+          const lines: string[] = [];
+          let currentLine = '';
+          
+          for (const word of words) {
+            const testLine = currentLine ? `${currentLine} ${word}` : word;
+            if (ctx.measureText(testLine).width > maxWidth && currentLine) {
+              lines.push(currentLine);
+              currentLine = word;
+            } else {
+              currentLine = testLine;
+            }
+          }
+          if (currentLine) lines.push(currentLine);
+          
+          const lineHeight = fontSize * 1.1;
+          const textY = canvas.height / 2 - (lines.length * lineHeight) / 2;
+          lines.forEach((line, i) => {
+            ctx.fillText(line.toUpperCase(), canvas.width / 2, textY + i * lineHeight);
+          });
+          
+          // Línea decorativa verde
+          ctx.fillStyle = '#22c55e';
+          const lineW = 100;
+          ctx.fillRect((canvas.width - lineW) / 2, textY + lines.length * lineHeight + 20, lineW, 6);
+          
+          // Branding
+          ctx.font = '700 24px Inter, system-ui, sans-serif';
+          ctx.fillStyle = 'rgba(255,255,255,0.8)';
+          ctx.fillText('ondaradio.com.co', canvas.width / 2, canvas.height - 80);
+          
+          // Fecha
+          ctx.font = '500 14px monospace';
+          ctx.fillStyle = 'rgba(255,255,255,0.3)';
+          ctx.fillText(new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }), canvas.width / 2, canvas.height - 50);
+          
+          await new Promise<void>((resolve) => {
+            canvas.toBlob((blob) => {
+               if (blob) {
+                 const url = window.URL.createObjectURL(blob);
+                 const link = document.createElement('a');
+                 link.download = `Onda-Estudio-${type}-${format.replace(':', 'x')}.png`;
+                 link.href = url;
+                 link.click();
+                 setTimeout(() => window.URL.revokeObjectURL(url), 2000);
+               }
+               resolve();
+            }, 'image/png', 1.0);
+          });
+        }
+      })(),
       {
-        loading: 'Renderizando imagen de alta calidad...',
-        success: 'Imagen descargada con éxito',
-        error: 'Error al generar la imagen',
+        loading: `Renderizando PNG ${targetDims.width}×${targetDims.height}...`,
+        success: `✅ PNG ${targetDims.width}×${targetDims.height} descargado`,
+        error: 'Error al generar la imagen PNG',
       }
     );
   };
@@ -530,9 +773,12 @@ function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, t
   const DEFAULT_BG = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072";
   const finalImage = (typeof bgImage === 'string' && bgImage.trim() !== "") ? bgImage : DEFAULT_BG;
   
-  const proxyImage = finalImage.startsWith('http')
-    ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImage)}&n=-1`
-    : finalImage;
+  // Solo proxy-ear si la URL no es ya un proxy de weserv.nl (evitar doble proxy → 404)
+  const proxyImage = finalImage.includes('images.weserv.nl')
+    ? finalImage
+    : (finalImage.startsWith('http') 
+        ? `https://images.weserv.nl/?url=${encodeURIComponent(finalImage)}&n=-1`
+        : finalImage);
 
   return (
     <div className="flex flex-col gap-3 group">
@@ -541,7 +787,7 @@ function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, t
         <div className="flex items-center gap-2 text-primary font-black uppercase tracking-widest text-[10px]">
           {icon} {title}
         </div>
-        <div className="text-[9px] font-mono text-white/40">{dims}</div>
+        <div className="text-[9px] font-mono text-white/40">{dims} • PNG</div>
       </div>
 
       {/* CANVAS SIMULATOR (Free Floating) */}
@@ -566,12 +812,18 @@ function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, t
 
         {/* Content Layer (STUDIO LAYOUT) */}
         <div className={cn(
-          "absolute inset-0 flex flex-col p-10 text-center z-10", 
-          isStory ? "justify-between pb-32 pt-20" : "justify-center"
+          "absolute inset-0 flex z-10", 
+          type === 'link' 
+            ? "flex-row items-center p-6 gap-4" 
+            : "flex-col p-10 text-center",
+          type === 'link' ? "" : (isStory ? "justify-between pb-32 pt-20" : "justify-center")
         )}>
-          {/* Main Visual Content (Flex-1) */}
-          <div className="flex-1 flex flex-col justify-center items-center w-full">
-            {flyerData.gridPoints && flyerData.gridPoints.length >= 2 ? (
+          {/* Main Visual Content */}
+          <div className={cn(
+            "flex flex-col justify-center",
+            type === 'link' ? "flex-1 items-start text-left min-w-0" : "flex-1 items-center w-full"
+          )}>
+            {flyerData?.gridPoints && flyerData.gridPoints.length >= 2 ? (
               <div className="grid grid-cols-2 grid-rows-2 gap-0 w-full aspect-square md:aspect-auto md:h-2/3 relative border border-white/10 rounded-2xl overflow-hidden bg-black/20 backdrop-blur-sm">
                 {/* Lines cross */}
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0">
@@ -589,43 +841,127 @@ function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, t
                 ))}
               </div>
             ) : (
-              <div className="space-y-6">
-                <h2 className={cn(
-                  "font-black text-white uppercase tracking-tighter leading-[0.9] drop-shadow-2xl", 
-                  isIGCarousel ? "text-3xl md:text-4xl" : (isStory ? "text-5xl" : (type === 'link' ? "text-2xl md:text-3xl" : "text-3xl md:text-4xl"))
-                )}>
-                  {flyerData.bigText}
-                </h2>
-                <div className={cn("bg-primary mx-auto rounded-full shadow-[0_0_10px_rgba(34,197,94,0.6)]", type === 'link' ? "h-1 w-16" : "h-1.5 w-24")} />
+              <div className={cn(
+                "w-full cursor-pointer",
+                type === 'link' ? "space-y-3" : "space-y-6"
+              )} onClick={() => !isEditing && startEditing()}>
+                {/* Si es el GANCHO (Acto 1), renderizar más grande y con indicador */}
+                {flyerData?.isHook && (
+                  <div className="text-[10px] font-black text-primary uppercase tracking-[0.4em] animate-pulse mb-2">
+                    ⚡ EL GANCHO
+                  </div>
+                )}
+
+                {/* MODO EDICIÓN: Textarea overlay */}
+                {isEditing ? (
+                  <div data-exclude-from-png="true" className="space-y-4">
+                    <textarea
+                      ref={textareaRef}
+                      value={editableText}
+                      onChange={(e) => setEditableText(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); confirmEdit(); }}}
+                      className={cn(
+                        "w-full bg-black/60 backdrop-blur-md border-2 border-primary/50 rounded-xl p-4 text-white font-black uppercase tracking-tighter leading-tight focus:outline-none focus:border-primary resize-none",
+                        type === 'link' ? "text-base md:text-lg text-left" : "text-xl md:text-2xl text-center"
+                      )}
+                      rows={type === 'link' ? 3 : 4}
+                      placeholder="Escribe tu texto aquí..."
+                    />
+                    <input
+                      type="text"
+                      value={editableSubtitle}
+                      onChange={(e) => setEditableSubtitle(e.target.value)}
+                      className="w-full bg-black/60 backdrop-blur-md border border-white/20 rounded-lg px-3 py-2 text-white/60 font-bold uppercase tracking-widest text-[10px] focus:outline-none focus:border-primary text-center"
+                      placeholder="Subtítulo (ej: DESLIZA →)"
+                    />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); confirmEdit(); }}
+                      className="bg-primary text-black px-6 py-2 rounded-full font-black uppercase tracking-widest text-[10px] hover:bg-white transition-all mx-auto block"
+                    >
+                      ✓ Confirmar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <h2 className={cn(
+                      "font-black text-white uppercase tracking-tighter leading-[0.9] drop-shadow-2xl", 
+                      type === 'link' 
+                        ? "text-lg md:text-xl lg:text-2xl line-clamp-4"
+                        : (flyerData?.isHook 
+                          ? "text-4xl md:text-5xl" 
+                          : (isIGCarousel ? "text-3xl md:text-4xl" : (isStory ? "text-5xl" : "text-3xl md:text-4xl"))))
+                    }>
+                      {renderStyledText(displayText)}
+                    </h2>
+                    <div className={cn(
+                      "bg-primary rounded-full shadow-[0_0_10px_rgba(34,197,94,0.6)]", 
+                      type === 'link' ? "h-1 w-12" : "h-1.5 w-24 mx-auto"
+                    )} />
+                    {/* Subtítulo contextual por slide */}
+                    {displaySubtitle && (
+                      <div className={cn(
+                        "text-[10px] font-black uppercase tracking-[0.3em]",
+                        type === 'link' ? "mt-1 text-white/30" : "mt-3",
+                        flyerData?.isHook ? "text-primary animate-pulse text-sm" : "text-white/30"
+                      )}>
+                        {displaySubtitle}
+                      </div>
+                    )}
+                    {/* Indicador visual de que es editable */}
+                    <div data-exclude-from-png="true" className={cn(
+                      "text-[8px] text-white/15 uppercase tracking-widest flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
+                      type === 'link' ? "mt-2 justify-start" : "mt-4 justify-center"
+                    )}>
+                      <Pencil size={8} /> Click para editar
+                    </div>
+                  </>
+                )}
               </div>
             )}
           </div>
 
           {/* Bottom Meta & Branding */}
-          <div className="space-y-4">
-            <div className="flex flex-col items-center gap-1">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <img src="/logo.png" alt="Onda" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(34,255,102,0.4)]" crossOrigin="anonymous" />
-                </div>
-                <span className="text-white/80 font-black tracking-tighter text-sm md:text-base">ondaradio.com.co</span>
+          <div className={cn(
+            type === 'link' 
+              ? "flex flex-col items-center justify-center gap-2 pl-4 border-l border-white/10 shrink-0 w-[120px]" 
+              : "space-y-4"
+          )}>
+            <div className={cn(
+              "flex items-center gap-1",
+              type === 'link' ? "flex-col" : "flex-col"
+            )}>
+              <div className={cn(
+                "flex items-center justify-center",
+                type === 'link' ? "w-10 h-10" : "w-8 h-8"
+              )}>
+                <img src="/logo.png" alt="Onda" className="w-full h-full object-contain drop-shadow-[0_0_8px_rgba(34,255,102,0.4)]" crossOrigin="anonymous" />
               </div>
-              
-              <div className="mt-2 text-[8px] font-mono tracking-[0.3em] text-white/20 uppercase">
-                {new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-              </div>
+              <span className={cn(
+                "font-black tracking-tighter",
+                type === 'link' ? "text-white/80 text-[10px]" : "text-white/80 text-sm md:text-base"
+              )}>ondaradio.com.co</span>
+            </div>
+            
+            <div className="text-[8px] font-mono tracking-[0.2em] text-white/20 uppercase" suppressHydrationWarning>
+              {typeof window !== 'undefined' ? new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }) : ''}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Footer Actions - Floating Button */}
-      <div>
+      {/* Footer Actions - Edit + Download Buttons */}
+      <div className="flex gap-2">
+        <button
+          onClick={startEditing}
+          className="flex-1 text-[10px] bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95"
+        >
+          <Pencil size={12} /> Editar Texto
+        </button>
         <button
           onClick={handleDownload}
-          className="w-full text-[10px] bg-white/5 hover:bg-white hover:text-black text-white border border-white/10 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 z-20"
+          className="flex-[2] text-[10px] bg-white/5 hover:bg-primary hover:text-black text-white border border-white/10 py-3 rounded-xl font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all active:scale-95 z-20"
         >
-          <Download size={12} /> Descargar {format}
+          <Download size={12} /> Descargar PNG {format}
         </button>
       </div>
     </div>
@@ -634,10 +970,11 @@ function AssetPreview({ title, format, dims, icon, aspect, bgImage, flyerData, t
 
 // --- COMPONENTE DE VISTA EXPANDIDA (MODAL) ---
 function ExpandedView({ item, onClose, evidenceImages }: { item: TransmediaItem; onClose: () => void; evidenceImages: string[] }) {
-  // Seleccionamos una imagen aleatoria de las evidencias si el item no tiene una propia, para enriquecer visualmente
+  // Seleccionar imagen de evidencia de forma determinística (basado en hash del ID del item)
+  const imageIndex = item.id ? item.id.split('').reduce((acc: number, c: string) => acc + c.charCodeAt(0), 0) : 0;
   const visualSrc = (item.imageUrl && item.imageUrl.trim() !== "") 
     ? item.imageUrl 
-    : (evidenceImages.length > 0 ? evidenceImages[Math.floor(Math.random() * evidenceImages.length)] : "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029");
+    : (evidenceImages.length > 0 ? evidenceImages[imageIndex % evidenceImages.length] : "https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=2029");
   
   const handleCopy = () => {
     navigator.clipboard.writeText(item.fullContent);
@@ -681,7 +1018,7 @@ function ExpandedView({ item, onClose, evidenceImages }: { item: TransmediaItem;
              {/* Date Check */}
              <div className="flex items-center gap-2 text-white/50 text-xs font-mono uppercase">
                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-               Estrategia Verificada • {new Date().toLocaleDateString()}
+               Estrategia Verificada
              </div>
            </div>
         </div>
@@ -745,7 +1082,7 @@ function ExpandedView({ item, onClose, evidenceImages }: { item: TransmediaItem;
                          <div key={idx} className="my-10 p-8 bg-white/5 border border-white/10 rounded-3xl relative overflow-hidden group">
                             <Quote className="absolute -top-4 -left-4 w-20 h-20 text-white/5 -rotate-12" />
                             <p className="text-xl md:text-2xl font-bold italic text-white/90 leading-relaxed relative z-10">
-                               "{cleanLine.replace('>', '').trim()}"
+                              &quot;{cleanLine.replace('>', '').trim()}&quot;
                             </p>
                             <div className="mt-4 flex items-center gap-2">
                                <div className="w-6 h-0.5 bg-primary" />

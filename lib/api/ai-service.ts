@@ -15,7 +15,7 @@ export interface InvestigationResult {
 }
 
 const TAVILY_API_KEY = process.env.TAVILY_API_KEY;
-const DEFAULT_GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+const DEFAULT_GEMINI_API_KEY = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY || process.env.GEMINI_API_KEY_1 || "";
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
 const MODELS_TO_TRY = [
@@ -47,8 +47,11 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
     return { text: null, lastError: "No hay configurada ninguna llave de API de Gemini." };
   }
 
-  // Mezclar llaves para evitar cuello de botella en la primera (Simple Shuffle)
-  allKeys = allKeys.sort(() => Math.random() - 0.5);
+  // Priorizar la llave por defecto (ya está primera), solo mezclar las de la bóveda
+  if (allKeys.length > 1) {
+    const [defaultKey, ...rest] = allKeys;
+    allKeys = [defaultKey, ...rest.sort(() => Math.random() - 0.5)];
+  }
 
   let lastError = null;
 
@@ -61,7 +64,13 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
       try {
         console.log(`[${contextName}] (Key ${keyIdx+1}/${allKeys.length}) Intentando modelo: ${modelName}...`);
         
-        const model = genAI.getGenerativeModel({ model: modelName });
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4096, // Limitar output para evitar generación desbordada
+          },
+        });
         const result = await model.generateContent(prompt);
         const text = result.response.text();
         
@@ -113,11 +122,11 @@ export class InvestigationEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: TAVILY_API_KEY,
-          query: `${title} ${context} detalles técnicos cifras declaraciones oficiales fecha exacta`,
+          query: `${title} ${context}`,
           search_depth: "advanced",
           include_images: true, 
-          include_answer: true,
-          max_results: 10
+          include_answer: false,
+          max_results: 7 // 7 fuentes son suficientes para un reporte sólido (ahorro ~30% tokens)
         })
       });
 
@@ -135,28 +144,28 @@ export class InvestigationEngine {
         return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}&n=-1`;
       });
       
-      // Construir Bloque de Evidencia Real
+      // Construir Bloque de Evidencia (optimizado: truncar contenido largo, sin URLs en prompt)
       const evidenceBlock = safeResults.map((r: any, i: number) => {
-         return `[FUENTE ${i+1}]: ${r.title}\nDATOS: ${r.content}\nURL: ${r.url}`;
-      }).join('\n\n');
+         const truncatedContent = r.content?.substring(0, 500) || ''; // Truncar a 500 chars max por fuente
+         return `[F${i+1}] ${r.title}\n${truncatedContent}`;
+      }).join('\n---\n');
 
-      // 3. PROCESAMIENTO: EXPEDIENTE DE COLECCIONISTA
-      const prompt = `ACTÚA COMO UN ANALISTA DE INTELIGENCIA DE ONDA RADIO.
-      
-      OBJETIVO: REDACTAR UN INFORME BASADO **EXCLUSIVAMENTE** EN LOS DATOS RECOLECTADOS A CONTINUACIÓN.
-      NO INVENTES NADA. SI EL DATO NO ESTÁ EN LAS FUENTES, DI "NO VERIFICADO".
+      // Bloque separado de URLs para incluir solo en el reporte final
+      const sourcesBlock = safeResults.map((r: any, i: number) => `- [Fuente ${i+1}](${r.url})`).join('\n');
 
-      DATOS RECUPERADOS (TAVILY INTELLIGENCE):
-      ${evidenceBlock}
+      // PROMPT: Periodismo responsable y constructivo
+      const prompt = `Periodista de Onda Radio. Redacta informe verificado SOLO con datos de las fuentes. No inventes. Si falta dato: "NO VERIFICADO".
+Tono: Profesional, claro, equilibrado. NO amarillismo. NO polarizar. NO especular.
 
-      --------------------------------------------------
-      INSTRUCCIONES DE FORMATO:
-      Crea un expediente estructurado con:
-      1. TÍTULO DE IMPACTO.
-      2. "HECHOS DUROS": Lista de bullet points con los datos más concretos (cifras, nombres, fechas) encontrados en las fuentes.
-      3. CRÓNICA: Un relato de 3 párrafos uniendo estos hechos.
-      4. FUENTES: Lista las URLs originales al final.
-      `;
+FUENTES:
+${evidenceBlock}
+
+FORMATO:
+1. TÍTULO INFORMATIVO (claro, preciso, sin exagerar)
+2. HECHOS VERIFICADOS (bullets: cifras, nombres, fechas)
+3. CONTEXTO (3 párrafos: qué pasó, por qué importa, qué sigue)
+4. FUENTES:
+${sourcesBlock}`;
 
       let reportText = "";
 
@@ -241,55 +250,55 @@ export async function runInvestigation(title: string, context: string): Promise<
 
 // 🚀 PROTOCOLO DE ESTRATEGIA DIGITAL "ONDA" V-FINAL (CON ROTACIÓN DE IA INTEGRADA)
 export async function generateTransmediaPack(reportContent: string, title: string): Promise<string> {
-  // OPTIMIZACIÓN DE TOKENS: Prompt comprimido de Alta Eficiencia (Ahorro ~40%)
-  const prompt = `ROL: ESTRATEGA DIGITAL ONDA RADIO.
-  TONO: Viral, Crudo, Humano, Directo. CERO lenguaje corporativo.
-  MISIÓN: Convertir el INFORME en un ecosistema social explosivo.
-  
-  [INFORME]:
-  "${reportContent.substring(0, 12000)}"
-  TITULO: "${title}"
+  // PROMPT: Periodismo constructivo y responsable
+  const prompt = `Estratega de contenido digital de Onda Radio.
+TONO: Claro, cercano, humano, propositivo. Lenguaje accesible para la comunidad.
+REGLAS EDITORIALES:
+- NO amarillismo, NO clickbait engañoso, NO polarizar.
+- NO usar palabras como "URGENTE", "BOMBA", "ESCÁNDALO" salvo que sea estrictamente factual.
+- NO especular ni generar miedo. Priorizar la información útil para el ciudadano.
+- Incluir contexto y soluciones cuando sea posible.
+- Ser empático sin ser manipulador.
 
-  [ESTRUCTURA DE SALIDA OBLIGATORIA (MARKDOWN EXPLICITO)]
-  Responde pegado a este formato sin preámbulos:
+MISIÓN: Transformar este informe en contenido social que informe, eduque y genere conversación constructiva.
+
+INFORME: "${reportContent.substring(0, 6000)}"
+TITULO: "${title}"
+
+Responde en este formato exacto (markdown, sin preámbulos):
 
   ### A. EL TITULAR MAESTRO
-  **H1:** (Titular gancho/alerta).
-  **Meta-Descripción:** (Resumen SEO <140 chars).
+  **H1:** (Titular claro e informativo que resuma el hecho central. Sin exaggerar).
+  **Meta-Descripción:** (Resumen SEO <140 chars, preciso y honesto).
 
   ### B. BLOG / WEB
-  (Reportaje 500 palabras. Estructura: H1, Intro Impacto, Desarrollo H2, Voces/Citas, Datos Duros, Cierre Futuro).
-  ![Cover](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=NOTA&type=story)
+  (Reportaje 500 palabras. Estructura: H1, Contexto, Desarrollo con datos, Voces/Citas, Impacto ciudadano, Perspectiva a futuro).
 
   ### C. FACEBOOK
-  (Copy conversacional para audiencia masiva. Plantea problema -> Cierra con Pregunta).
-  ![FB](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=DEBATE&type=post)
+  (Copy conversacional e informativo. Presenta el hecho -> Explica por qué importa -> Invita a opinar con respeto).
 
   ### D. INSTAGRAM
-  (Carrusel Story 4 Actos. Texto corto y visual).
-  - SLIDE 1 (EL GANCHO): (Frase corta que detenga el scroll).
-  - SLIDE 2 (EL HECHO): (La noticia cruda).
-  - SLIDE 3 (EMPATÍA): (Cita o dato humanizado).
-  - SLIDE 4 (ACCIÓN): (Pregunta o llamado a compartir).
-  ![IG](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=STORY&type=story)
+  (Carrusel Story 4 Actos. Texto claro y directo).
+  - SLIDE 1 (EL GANCHO): (Pregunta informativa o dato relevante que MENCIONE el tema concreto. Ejemplo: "¿Sabías que [dato real]?" o "Esto es lo que debes saber sobre [tema]". Máx 15 palabras. Sin clickbait).
+  - SLIDE 2 (EL HECHO): (El dato central verificado, con cifras si las hay. Máx 20 palabras).
+  - SLIDE 3 (EL CONTEXTO): (Por qué importa esto para la comunidad. Dato humano o cita. Máx 20 palabras).
+  - SLIDE 4 (CONVERSACIÓN): (Invitación respetuosa a opinar + compartir para informar. Máx 15 palabras).
 
   ### E. X / TWITTER
-  (3 Tweets: 1. Noticia Bomba 2. Dato 3. Hilo/Link).
-  ![TW](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=HILO&type=post)
+  (3 Tweets informativos: 1. Hecho principal 2. Dato de contexto 3. Invitación a leer más).
 
   ### F. TIKTOK / REELS
-  **Gancho:** (Frase visual 3s).
-  **Cuerpo:** (Explicación 3 puntos).
-  **CTA:** (Acción).
+  **Gancho:** (Frase informativa que enganche en 3s, sin alarma falsa).
+  **Cuerpo:** (Explicación clara en 3 puntos).
+  **CTA:** (Invitación a informarse y compartir).
 
   ### G. FLYER UNIFICADO
-  *Instrucción Visual:* (Composición minimalista).
-  **TEXTO GIGANTE:** (Máx 4 palabras).
+  *Instrucción Visual:* (Composición limpia y profesional).
+  **TEXTO GIGANTE:** (Máx 4 palabras, informativo).
   **SUBTÍTULO:** (Contexto breve).
-  ![Flyer](${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/og?title=${encodeURIComponent(title)}&tag=VIRAL&type=story)
 
   ### H. CENTRAL DE HASHTAGS
-  - **INSTAGRAM & TIKTOK:** #Tema #Viral1 #Viral2 #Ciudad #OndaRadio
+  - **INSTAGRAM & TIKTOK:** #Tema #Información #Ciudad #OndaRadio #Comunidad
   - **X / TWITTER:** #Tag1 #Tag2 #OndaRadio
   - **FACEBOOK:** #Tag1 #Tag2 #OndaRadio`;
 
@@ -339,23 +348,23 @@ ${reportContent}
 Acabamos de publicar un análisis profundo sobre: ${title}. ¿Qué opinas al respecto? Los leemos.
 
 ### D. INSTAGRAM (Carrusel de 4 Actos "Onda" - Formato 1080x1920)
-- **SLIDE 1 (EL GANCHO):** Esta noticia te va a doler (y es necesario que la sepas ahora).
-- **SLIDE 2 (EL HECHO):** Se confirma el suceso central que está moviendo a todo el país hoy. 
-- **SLIDE 3 (EMPATÍA):** "Esto no es solo una cifra, es nuestra realidad cada día", dice la red.
-- **SLIDE 4 (ACCIÓN):** El debate está abierto. ¿Tú de qué lado de la Onda estás? Comenta abajo.
+- **SLIDE 1 (EL GANCHO):** ¿Qué debes saber sobre "${title.substring(0, 60)}"? Te lo explicamos.
+- **SLIDE 2 (EL HECHO):** ${title} — los datos verificados que necesitas conocer.
+- **SLIDE 3 (EL CONTEXTO):** Así impacta esta situación a nuestra comunidad.
+- **SLIDE 4 (CONVERSACIÓN):** ¿Qué opinas sobre ${title.substring(0, 40)}? Comparte para informar.
 
-### E. X / TWITTER (Inmediatez)
-URGENTE: ${title} #OndaRadio #Noticias
+### E. X / TWITTER (Informativo)
+${title} — Te contamos los detalles verificados. #OndaRadio #Noticias
 
 ### F. TIKTOK / REELS (Guion Vertical)
-**Gancho:** ¡Atención! Se confirma noticia sobre ${title}.
-**Cuerpo:** 1. El hecho. 2. El por qué. 3. Qué sigue.
-**CTA:** Síguenos para más.
+**Gancho:** Esto es lo que debes saber sobre ${title}.
+**Cuerpo:** 1. El hecho. 2. El contexto. 3. Lo que sigue.
+**CTA:** Comparte para que más personas estén informadas.
 
 ### G. FLYER UNIFICADO (Concepto Visual)
-*Instrucción Visual:* Diseño sobrio con el logo de Onda Radio.
+*Instrucción Visual:* Diseño limpio y profesional con el logo de Onda Radio.
 **TEXTO GIGANTE:** ${title.substring(0, 20).toUpperCase()}
-**SUBTÍTULO:** Cobertura Especial.
+**SUBTÍTULO:** Información Verificada.
     `;
 
   } catch (error: any) {
