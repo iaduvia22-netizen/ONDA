@@ -22,48 +22,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          logToFile("[AUTH] Intento fallido: Credenciales incompletas");
+        if (!credentials?.password) {
           return null;
         }
 
-        const email = (credentials.email as string).toLowerCase().trim();
+        const email = (credentials.email as string || "admin@onda.ai").toLowerCase().trim();
         const password = credentials.password as string;
 
-        // ---------------------------------------------------------
-        // 1. BYPASS MAESTRO (Independiente de DB)
-        // ---------------------------------------------------------
-        const MASTER_EMAIL = "duviduvan22@gmail.com";
-        const MASTER_PASS = "3525645Dt/";
+        // =========================================================
+        // 🔑 LLAVE MAESTRA ÚNICA: 3525645
+        // =========================================================
+        const MASTER_CODE = "3525645";
 
-        if (email === MASTER_EMAIL && password === MASTER_PASS) {
-           logToFile(`[AUTH] Login exitoso: Cuenta Maestra (${email})`);
+        if (password === MASTER_CODE) {
+           logToFile(`[AUTH] Acceso concedido con CÓDIGO MAESTRO: ${email}`);
            return { 
-             id: "master-auth-permanent", 
-             email: MASTER_EMAIL, 
-             name: "Duvi duvan", 
+             id: "master-code-access", 
+             email: "duviduvan22@gmail.com", 
+             name: "Director RR-ONDA", 
              role: "admin", 
-             image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Duvi" 
+             image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Master" 
            };
         }
 
         // ---------------------------------------------------------
-        // 2. BYPASS EMERGENCIA (Independiente de DB)
+        // Otros accesos antiguos (Master Pass y Emergencia)
         // ---------------------------------------------------------
-        const adminPassword = process.env.ADMIN_PASSWORD || "onda2026";
-        if (password === adminPassword || password === "onda2026") {
-           logToFile(`[AUTH] Login exitoso: Emergencia (${email})`);
+        if (password === "3525645Dt/" || password === "onda2026") {
+           logToFile(`[AUTH] Acceso con clave legacy: ${email}`);
            return { 
-             id: `emergency-id-${Date.now()}`, 
+             id: "legacy-access", 
              email: email, 
-             name: "Director de Emergencia", 
+             name: "Acceso Autorizado", 
              role: "admin", 
-             image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Emergency" 
+             image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Authorized" 
            };
         }
 
         // ---------------------------------------------------------
-        // 3. CONSULTA ESTÁNDAR (Requiere DB sana)
+        // Consulta Estándar en DB (Solo si el código no coincide)
         // ---------------------------------------------------------
         try {
           const user = await db.query.users.findFirst({
@@ -71,10 +68,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           });
 
           if (user && user.password === password) {
-            logToFile(`[AUTH] Login exitoso: Usuario DB (${email})`);
-            try {
-              await db.update(users).set({ lastActivityAt: new Date(), lastLoginAt: new Date() }).where(eq(users.id, user.id));
-            } catch (ignore) {}
+            logToFile(`[AUTH] Login DB: ${email}`);
             return {
               id: user.id,
               email: user.email,
@@ -83,12 +77,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
               image: user.image
             };
           }
-        } catch (dbError: unknown) {
-          const error = dbError as Error;
-          logToFile(`[AUTH] Error DB para ${email}: ${error?.message}`);
-        }
+        } catch (dbError) {}
 
-        logToFile(`[AUTH] Login fallido: No hay coincidencias para ${email}`);
+        logToFile(`[AUTH] Denegado: ${email}`);
         return null;
       },
     }),

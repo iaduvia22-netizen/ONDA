@@ -21,13 +21,13 @@ export default function LoginPage() {
 
     try {
       const result = await signIn('credentials', {
-        email,
-        password,
+        email: 'admin@onda.ai',
+        password: password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Credenciales no válidas. Acceso denegado a la Onda.");
+        setError("Código no válido. Acceso denegado.");
       } else {
         router.push('/');
         router.refresh();
@@ -60,36 +60,22 @@ export default function LoginPage() {
               />
             </div>
             <h1 className="text-2xl font-black text-white tracking-tighter">RR-ONDA</h1>
-            <p className="text-text-muted text-sm mt-1 uppercase tracking-widest font-semibold">Terminal de Acceso</p>
+            <p className="text-text-muted text-sm mt-1 uppercase tracking-widest font-semibold">Acceso con Código Único</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-widest ml-1">ID de Analista</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim" size={18} />
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-surface-hover border border-border rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all"
-                  placeholder="analista@onda.ai"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-text-muted uppercase tracking-widest ml-1">Clave de Encriptación</label>
+              <label className="text-xs font-bold text-text-muted uppercase tracking-widest ml-1">Código Maestro</label>
               <div className="relative">
                 <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-text-dim" size={18} />
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-surface-hover border border-border rounded-xl py-3 pl-12 pr-4 text-white focus:outline-none focus:border-primary/50 transition-all"
-                  placeholder="••••••••"
+                  className="w-full bg-surface-hover border border-border rounded-xl py-4 pl-12 pr-4 text-white text-lg focus:outline-none focus:border-primary/50 transition-all text-center tracking-[0.5em] font-mono"
+                  placeholder="•••••••"
                   required
+                  autoFocus
                 />
               </div>
             </div>
@@ -105,11 +91,11 @@ export default function LoginPage() {
               type="submit"
               disabled={isLoading}
               className={cn(
-                "w-full bg-primary hover:bg-primary-light text-background font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all group",
+                "w-full bg-primary hover:bg-primary-light text-background font-black py-4 rounded-xl flex items-center justify-center gap-2 transition-all group mt-4",
                 isLoading && "opacity-50 cursor-not-allowed"
               )}
             >
-              {isLoading ? "Validando Señal..." : "Sincronizar Acceso"}
+              {isLoading ? "Validando Código..." : "Sincronizar Acceso"}
               <ArrowRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </button>
           </form>
