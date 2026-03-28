@@ -5,28 +5,8 @@ export const authConfig = {
   secret: process.env.AUTH_SECRET || "development_secret_onda_2026",
   providers: [], // Los proveedores se definen en auth.ts para permitir acceso a la BD
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
-      const isLoggedIn = !!auth?.user;
-      const isOnLogin = nextUrl.pathname.startsWith('/login');
-      
-      // Lista de rutas que requieren autenticación
-      const protectedRoutes = ['/', '/news', '/trending', '/local', '/research', '/redaction', '/director'];
-      const isProtectedRoute = protectedRoutes.some(route => 
-        nextUrl.pathname === route || nextUrl.pathname.startsWith(route + '/')
-      );
-
-      if (isProtectedRoute) {
-        if (!isLoggedIn) return false;
-
-        // Protección extra para la consola del director
-        if (nextUrl.pathname.startsWith('/director') && (auth?.user as any)?.role !== 'admin') {
-          return Response.redirect(new URL('/', nextUrl));
-        }
-
-        return true; 
-      } else if (isLoggedIn && isOnLogin) {
-        return Response.redirect(new URL('/', nextUrl));
-      }
+    authorized() {
+      // 🚀 ACCESO LIBRE TOTAL: Desbloqueando todas las rutas
       return true;
     },
     jwt({ token, user }) {
