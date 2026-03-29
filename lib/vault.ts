@@ -1,6 +1,6 @@
 /**
- * 🛰️ BÓVEDA LOCAL v6 (SUPER-SATURACIÓN)
- * 10 Canales de respaldo para NewsData para garantizar flujo 24/7.
+ * 🛰️ BÓVEDA LOCAL v6.2 (MODO SIN CONFLICTOS)
+ * Optimizada para no pedir secretos complejos en entorno local.
  */
 
 export const VAULT = {
@@ -20,10 +20,17 @@ export const VAULT = {
     "pub_6602492576b53a060e224e757ad7eb272504b",
     "pub_66025170d10d11005a305904d94060807b065",
     "pub_6602638890479109312384910238491823901",
-    "pub_927bcc38918945318990904e0be82264",
-    "pub_839fcc38918945318990904e0be82253"
+    "pub_927bcc38918945318990904e0be82264"
   ]
 };
+
+// Secreto Local para NextAuth si no existe
+if (!process.env.NEXTAUTH_SECRET) {
+  process.env.NEXTAUTH_SECRET = "onda_radio_maestro_local_secret_2026";
+}
+if (!process.env.NEXTAUTH_URL) {
+  process.env.NEXTAUTH_URL = "http://localhost:7777";
+}
 
 let indices: Record<string, number> = { GEMINI: 0, TAVILY: 0, NEWSDATA: 0 };
 
