@@ -180,12 +180,15 @@ export function VideoGenerator({ slides, images }: VideoGeneratorProps) {
       ctx.font = '800 20px "Inter", Arial, sans-serif';
       ctx.fillText("RADIO REGIONAL", canvas.width / 2, 160);
 
-      // SUBTÍTULO ESTRUCTURADO (FASE DEL ACTO)
-      const phaseLabel = slides[slideIdx].title.split(':')[1]?.trim() || slides[slideIdx].title;
-      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      // MARCA DE AGUA INFERIOR (SITIO WEB Y FECHA)
+      ctx.fillStyle = 'rgba(255,255,255,0.4)';
       ctx.font = '700 24px "Inter", Arial, sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`⚡ ${phaseLabel.toUpperCase()}`, 80, canvas.height - 180);
+      ctx.textAlign = 'center';
+      ctx.fillText("ondaradio.com.co", canvas.width / 2, canvas.height - 100);
+      
+      const today = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      ctx.font = '500 18px monospace';
+      ctx.fillText(today, canvas.width / 2, canvas.height - 60);
 
       // ANIMACIÓN DE TIPOGRAFÍA: Fase de Fade In Suave para el texto principal
       const textAlpha = Math.min(1, slideFrame / 40); 
