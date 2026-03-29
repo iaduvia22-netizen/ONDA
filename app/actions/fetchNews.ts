@@ -9,56 +9,85 @@ export interface NewsArticle {
   image_url?: string;
   category: string[];
   snippet?: string;
+  investigationReport?: string; // Cacheado opcional
 }
 
 const BASE_URL = 'https://newsdata.io/api/1/latest';
 
-/**
- * MOTOR DE NOTICIAS ONDA v3 (ROBUSTEZ LOCAL)
- * Incluye auto-rotación de llaves y re-intentos automáticos.
- */
 export async function fetchNewsAction(category?: string, query?: string, countryCode?: string): Promise<NewsArticle[]> {
   let attempts = 0;
-  const maxAttempts = 3;
+  const maxAttempts = 5; // Más intentos para cubrir la super-bóveda
 
   while (attempts < maxAttempts) {
     const key = getActiveKey('NEWSDATA');
     const params = new URLSearchParams();
     params.append('apikey', key);
     params.append('language', 'es');
-    params.append('size', '10');
+    params.append('size', '15');
 
     if (countryCode) params.append('country', countryCode);
     if (category) params.append('category', category);
     if (query) params.append('q', query);
 
     try {
-      console.log(`[ONDA-NEWS] Intento ${attempts + 1} usando canal: ${key.substring(0, 8)}...`);
+      console.log(`[ONDA-NEWS] 📡 Escaneando Canal ${key.substring(0, 8)}... (Intento ${attempts + 1})`);
       
       const res = await fetch(`${BASE_URL}?${params.toString()}`, { 
         cache: 'no-store',
-        signal: AbortSignal.timeout(6000) // 6s de timeout por intento
+        signal: AbortSignal.timeout(6000)
       });
 
       const data = await res.json();
 
-      if (data.status === 'success' && data.results) {
-        console.log(`[ONDA-NEWS] ✅ Éxito: ${data.results.length} noticias capturadas.`);
+      if (data.status === 'success' && data.results && data.results.length > 0) {
+        console.log(`[ONDA-NEWS] ✅ Éxito: ${data.results.length} noticias. Canal verificado.`);
         return data.results;
       }
 
-      // Si llegamos aquí, la API respondió pero con error (ej. límite de cuota 429)
-      console.warn(`[ONDA-NEWS] ⚠️ API reportó anomalía: ${data.message || 'Error desconocido'}`);
+      // 🚨 Diagnóstico Profundo
+      const errorMsg = data.results?.message || data.message || "Error Desconocido";
+      console.warn(`[ONDA-NEWS] ⚠️ Canal Saturado o Bloqueado (${res.status}): ${errorMsg}`);
       rotateKey('NEWSDATA');
       attempts++;
 
-    } catch (error) {
-      console.error(`[ONDA-NEWS] ❌ Fallo de conexión en intento ${attempts + 1}`);
+    } catch (error: any) {
+       // Si es un timeout o error de red local
+      console.error(`[ONDA-NEWS] ❌ Error de Red Local (${error.name}): Rotando canal...`);
       rotateKey('NEWSDATA');
       attempts++;
     }
   }
 
-  console.error('[ONDA-NEWS] 🚨 Todos los canales de noticias están saturados o inactivos.');
+  // 🛰️ PROTOCOLO BYPASS OSINT (Respaldo Extremo)
+  console.error('[ONDA-NEWS] 🚨 Todos los canales NewsData saturados. Iniciando BYPASS OSINT...');
+  try {
+     const tavilyKey = getActiveKey('TAVILY');
+     const osintRes = await fetch('https://api.tavily.com/search', {
+       method: 'POST',
+       headers: { 'Content-Type': 'application/json' },
+       body: JSON.stringify({
+         api_key: tavilyKey,
+         query: query || "noticias hoy colombia impacto ciudadano",
+         search_depth: 'advanced',
+         max_results: 5
+       })
+     });
+     const osintData = await osintRes.json();
+     if (osintData.results) {
+        console.log(`[ONDA-NEWS] 🛡️ Éxito en BYPASS OSINT: ${osintData.results.length} noticias recuperadas.`);
+        return osintData.results.map((r: any) => ({
+           title: r.title,
+           link: r.url,
+           description: r.content,
+           pubDate: new Date().toISOString(),
+           source_id: 'OSINT_RADAR',
+           category: ['OSINT'],
+           snippet: r.content.substring(0, 160)
+        }));
+     }
+  } catch (e) {
+     console.error('[ONDA-NEWS] 💀 El sistema informativo colapsó totalmente.');
+  }
+
   return [];
 }

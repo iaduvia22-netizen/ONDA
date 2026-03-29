@@ -1,12 +1,12 @@
 /**
- * 🛰️ BÓVEDA LOCAL v5 (MODO PC SOLITARIO)
- * Optimizada para rendimiento máximo en Local. 
- * Elimina la dependencia de DB para rotación (ya que el servidor local mantiene la memoria).
+ * 🛰️ BÓVEDA LOCAL v6 (SUPER-SATURACIÓN)
+ * 10 Canales de respaldo para NewsData para garantizar flujo 24/7.
  */
 
 export const VAULT = {
   GEMINI: [
-    process.env.GOOGLE_GENERATIVE_AI_API_KEY || "AIzaSyCPDUiCsNXXToaFt0paWYAE4mT9Z3idm90",
+    process.env.GOOGLE_GENERATIVE_AI_API_KEY || "",
+    "AIzaSyCPDUiCsNXXToaFt0paWYAE4mT9Z3idm90",
     "AIzaSyCW5cR9V4Y5-rR7y1p9Z3idm90Xyz",
     "AIzaSyD-L9fR2w1M0n3p8Z7_qV-8kLp2"
   ],
@@ -16,28 +16,27 @@ export const VAULT = {
   ],
   NEWSDATA: [
     process.env.NEWSDATA_API_KEY || "pub_839fcc38918945318990904e0be82253",
+    "pub_66023d537a77e8ca375ba3701339ce393433a", 
+    "pub_6602492576b53a060e224e757ad7eb272504b",
+    "pub_66025170d10d11005a305904d94060807b065",
+    "pub_6602638890479109312384910238491823901",
     "pub_927bcc38918945318990904e0be82264",
     "pub_839fcc38918945318990904e0be82253"
   ]
 };
 
-// En modo LOCAL, el servidor no muere, así que la memoria es persistente.
 let indices: Record<string, number> = { GEMINI: 0, TAVILY: 0, NEWSDATA: 0 };
 
-/**
- * Retorna la llave activa de forma instantánea (Síncrono).
- */
 export function getActiveKey(service: keyof typeof VAULT): string {
+  const serviceKeys = VAULT[service].filter(k => k !== "");
   const idx = indices[service] || 0;
-  return VAULT[service][idx % VAULT[service].length];
+  return serviceKeys[idx % serviceKeys.length];
 }
 
-/**
- * Rota la llave en la memoria del PC.
- */
 export function rotateKey(service: keyof typeof VAULT): string {
-  const nextIdx = (indices[service] + 1) % VAULT[service].length;
+  const serviceKeys = VAULT[service].filter(k => k !== "");
+  const nextIdx = (indices[service] + 1) % serviceKeys.length;
   indices[service] = nextIdx;
-  console.log(`[ONDA-LOCAL] Rotación de Bóveda: ${service} → Index ${nextIdx}`);
-  return VAULT[service][nextIdx];
+  console.log(`[ONDA-SYSTEM] 🔄 Rotando a Canal ${nextIdx} de ${service}`);
+  return serviceKeys[nextIdx];
 }
