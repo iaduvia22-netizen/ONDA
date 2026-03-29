@@ -51,7 +51,7 @@ async function checkPhase1(): Promise<HealthStatus> {
 async function checkPhase2(): Promise<HealthStatus> {
   const t = Date.now();
   try {
-    const key = await getActiveKey('NEWSDATA');
+    const key = getActiveKey('NEWSDATA');
     const res = await fetch(`https://newsdata.io/api/1/latest?apikey=${key}&language=es&size=1`, {
         signal: AbortSignal.timeout(5000) // 5s max
     });
@@ -78,7 +78,7 @@ async function checkPhase2(): Promise<HealthStatus> {
 async function checkPhase3(): Promise<HealthStatus> {
   const t = Date.now();
   try {
-    const key = await getActiveKey('GEMINI');
+    const key = getActiveKey('GEMINI');
     const genAI = new GoogleGenerativeAI(key);
     const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     
@@ -110,7 +110,7 @@ async function checkPhase3(): Promise<HealthStatus> {
 async function checkPhase4(): Promise<HealthStatus> {
   const t = Date.now();
   try {
-    const key = await getActiveKey('TAVILY');
+    const key = getActiveKey('TAVILY');
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

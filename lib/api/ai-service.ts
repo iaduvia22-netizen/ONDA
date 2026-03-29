@@ -18,7 +18,7 @@ async function generateWithCascade(
   prompt: string,
   ctx: string
 ): Promise<{ text: string | null; lastError: string | null }> {
-  const active = await getActiveKey('GEMINI');
+  const active = getActiveKey('GEMINI');
   const allKeys = [active, ...VAULT.GEMINI.filter((k) => k !== active)];
 
   let lastError: string | null = null;
@@ -94,7 +94,7 @@ interface TavilyImage {
 export class InvestigationEngine {
   static async start(title: string, context: string): Promise<InvestigationResult> {
     console.log(`[ONDA-INTEL] Iniciando investigación: ${title}`);
-    const tavilyKey = await getActiveKey('TAVILY');
+    const tavilyKey = getActiveKey('TAVILY');
 
     let safeResults: TavilySource[] = [];
     let images: string[] = [];

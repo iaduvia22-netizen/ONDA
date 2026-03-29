@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { runPlatformCheckAction, HealthStatus } from '@/app/actions/healthCheck';
-import { Activity, ShieldCheck, Zap, Radio, Globe, AlertCircle, RefreshCcw, Wifi, Server, Cpu } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { ShieldCheck, Radio, Globe, RefreshCcw, Wifi, Server, Cpu } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useNotificationStore } from '@/lib/store/notificationStore';
 import { cn } from '@/lib/utils';
 
@@ -37,7 +37,6 @@ export function ProtocolMonitor() {
 
           await new Promise(resolve => setTimeout(resolve, 3000));
           
-          // Pasar todo a online (visualmente) para dar tranquilidad, o mantener 'repaired' con color azul
           setStatus(results);
           
           if (!isAuto) {
@@ -98,7 +97,7 @@ export function ProtocolMonitor() {
 
   return (
     <div className="w-full bg-[#080808] border border-white/5 rounded-3xl p-6 relative overflow-hidden group">
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-transparent opacity-50" />
+      <div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-transparent opacity-50" />
       
       <div className="flex items-center justify-between mb-8 relative z-10">
         <div className="flex items-center gap-3">
