@@ -6,7 +6,7 @@ import { getActiveKey } from '@/lib/vault';
 const BASE_URL = 'https://newsdata.io/api/1/latest';
 
 export async function fetchNewsAction(category?: string, query?: string, countryCode?: string): Promise<NewsArticle[]> {
-  const API_KEY = getActiveKey('NEWSDATA');
+  const API_KEY = await getActiveKey('NEWSDATA');
 
   if (!API_KEY) {
     console.warn('⚠️ NewsData API Key no configurada.');
