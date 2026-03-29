@@ -87,11 +87,10 @@ export class InvestigationEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: tavilyKey,
-          // Query optimizada para buscar evidencias fotográficas además de texto
-          query: `${title} ${context} evidencias fotográficas reales periodismo`,
+          query: `${title} ${context} evidencia fotográfica real lugar hechos`,
           search_depth: 'advanced',
           include_images: true,
-          max_results: 7,
+          max_results: 8,
         }),
       });
 
@@ -100,6 +99,7 @@ export class InvestigationEngine {
       const searchData = await searchRes.json();
       safeResults = Array.isArray(searchData.results) ? searchData.results : [];
 
+      // Recuperar imágenes reales del hecho (OSINT)
       const rawImages: (string | TavilyImage)[] = searchData.images || [];
       rawImageUrls = rawImages.map((img) =>
         typeof img === 'string' ? img : img.url
