@@ -1,7 +1,12 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getActiveKey, rotateKey, VAULT } from '@/lib/vault';
+import { getActiveKey, rotateKey, VAULT } from "@/lib/vault";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-export interface InvestigationResult {
+/**
+ * MOTOR DE INTELIGENCIA RR-ONDA v5 (AUDITORÍA LOCAL)
+ * Incluye auto-recuperación y prompts periodísticos de alta gama.
+ */
+
+interface InvestigationResult {
   report: string;
   sourcesFound: number;
   entitiesMatched: string[];
@@ -9,72 +14,48 @@ export interface InvestigationResult {
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
-const GEMINI_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro'];
+async function tryOllama(prompt: string, ctx: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${OLLAMA_HOST}/api/generate`, {
+      method: 'POST',
+      body: JSON.stringify({
+        model: 'llama3',
+        prompt: `[CONTEXTO: ${ctx}]\n${prompt}`,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return data.response;
+  } catch {
+    return null;
+  }
+}
 
-// ──────────────────────────────────────────────
-// CORE: Gemini multi-key, multi-model cascade
-// ──────────────────────────────────────────────
 async function generateWithCascade(
   prompt: string,
   ctx: string
 ): Promise<{ text: string | null; lastError: string | null }> {
   const active = getActiveKey('GEMINI');
-  const allKeys = [active, ...VAULT.GEMINI.filter((k) => k !== active)];
+  const allKeys = [active, ...VAULT.GEMINI.filter((k: string) => k !== active)];
 
   let lastError: string | null = null;
 
-  for (const [ki, apiKey] of allKeys.entries()) {
-    const genAI = new GoogleGenerativeAI(apiKey);
-
-    for (const modelName of GEMINI_MODELS) {
-      try {
-        console.log(`[${ctx}] Key ${ki + 1}/${allKeys.length} — ${modelName}`);
-        const model = genAI.getGenerativeModel({
-          model: modelName,
-          generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
-        });
-        const result = await model.generateContent(prompt);
-        const text = result.response.text();
-        if (text?.trim()) return { text, lastError: null };
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : String(err);
-        lastError = msg;
-        console.warn(`[${ctx}] Key ${ki + 1} / ${modelName} falló: ${msg.slice(0, 80)}`);
-
-        // Skip to next key on auth/quota errors
-        if (/429|403|400|invalid|leaked|not found/i.test(msg)) {
-          rotateKey('GEMINI');
-          break;
-        }
-      }
+  for (const key of allKeys) {
+    try {
+      const genAI = new GoogleGenerativeAI(key);
+      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      if (text) return { text, lastError: null };
+    } catch (err: any) {
+      lastError = err.message;
+      rotateKey('GEMINI');
     }
   }
 
   return { text: null, lastError };
-}
-
-// Ollama fallback (local model, ignored if unreachable)
-async function tryOllama(prompt: string, ctx: string): Promise<string | null> {
-  try {
-    console.log(`[${ctx}] Intentando Ollama local…`);
-    const res = await fetch(`${OLLAMA_HOST}/api/generate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: process.env.MODEL_NAME || 'llama3',
-        prompt,
-        stream: false,
-      }),
-      signal: AbortSignal.timeout(90000),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      return (data.response as string) || null;
-    }
-  } catch {
-    console.warn(`[${ctx}] Ollama no disponible.`);
-  }
-  return null;
 }
 
 // ──────────────────────────────────────────────
@@ -106,10 +87,10 @@ export class InvestigationEngine {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: tavilyKey,
-          query: `${title} ${context}`,
+          // Query optimizada para buscar evidencias fotográficas además de texto
+          query: `${title} ${context} evidencias fotográficas reales periodismo`,
           search_depth: 'advanced',
           include_images: true,
-          include_answer: false,
           max_results: 7,
         }),
       });
@@ -123,6 +104,7 @@ export class InvestigationEngine {
       rawImageUrls = rawImages.map((img) =>
         typeof img === 'string' ? img : img.url
       );
+      
       images = rawImageUrls.map(
         (url) =>
           `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}&n=-1`
@@ -136,37 +118,29 @@ export class InvestigationEngine {
       .map((r, i) => `[F${i + 1}] ${r.title}\n${r.content?.substring(0, 500) || ''}`)
       .join('\n---\n');
 
-    const sourcesBlock = safeResults
-      .map((r, i) => `- [Fuente ${i + 1}](${r.url})`)
-      .join('\n');
-
-    const prompt = `Actúa como Director de Inteligencia de Onda Radio. Analiza estas fuentes para detectar la VERDAD central, el impacto CIUDADANO y los datos DUROS.
-No hagas un resumen genérico. Encuentra el "ángulo humano" y las consecuencias reales.
+    const prompt = `Actúa como Director de Inteligencia de Onda Radio Regional. Analiza estas fuentes para detectar la VERDAD central y el IMPACTO CIUDADANO.
+Evita el lenguaje robótico. Encuentra el "ángulo humano".
 
 FUENTES DE INTELIGENCIA:
 ${evidenceBlock}
 
 ESTRUCTURA DEL REPORTE (Markdown):
 # 📡 REPORTE DE INTELIGENCIA: [TÍTULO IMPACTANTE]
-### 🔍 HALLAZGOS CLAVE
-- [Dato 1 con cifra]
-- [Dato 2 con implicación]
-
 ### 📝 ANÁLISIS DE IMPACTO
-- **Contexto:** (Qué está pasando realmente detrás de los titulares)
-- **Impacto Local:** (Cómo afecta al ciudadano de a pie)
-- **Prospección:** (Qué podemos esperar en las próximas 72 horas)
+- **Contexto Real:** (Qué está pasando realmente)
+- **Impacto Local:** (Cómo le afecta a la gente)
+- **Prospección:** (Qué pasará después)
 
 ### 📚 FUENTES VERIFICADAS
-${sourcesBlock}`;
+${safeResults.map((r, i) => `- [Fuente ${i + 1}](${r.url})`).join('\n')}`;
 
-    const { text, lastError } = await generateWithCascade(prompt, 'ONDA-INTEL');
+    const { text } = await generateWithCascade(prompt, 'ONDA-INTEL');
     let reportText = text || (await tryOllama(prompt, 'ONDA-INTEL'));
 
     if (!reportText) {
-      console.error('[ONDA-INTEL] Fallo total de IA:', lastError);
-      reportText = `# EXPEDIENTE DE ACCESO DIRECTO\n\n**Motor de IA no disponible.** Datos OSINT recuperados:\n\n${safeResults
-        .map((r, i) => `### ${i + 1}. ${r.title}\n> ${r.content}\n- [Ver fuente](${r.url})`)
+      reportText = `# 📡 REPORTE DE EMERGENCIA: ${title}\n\nEl sistema OSINT detectó la noticia pero el motor de análisis está saturado.\n\n### RESUMEN\n${safeResults
+        .slice(0, 3)
+        .map((r) => `* **${r.title}:** ${r.content?.substring(0, 150)}...`)
         .join('\n\n')}`;
     }
 
@@ -189,8 +163,8 @@ export async function generateTransmediaPack(
   reportContent: string,
   title: string
 ): Promise<string> {
-  const prompt = `Actúa como Estratega Digital Senior para Onda Radio. Transforma este reporte en una narrativa transmedia HUMANA, COHERENTE y VIRAL.
-EVITA clichés de IA ("¿Sabías que...?", "Descubre aquí..."). Habla como un periodista real.
+  const prompt = `Actúa como Estratega Digital Senior para Onda Radio. Transforma este reporte en una narrativa transmedia HUMANA y VIRAL.
+EVITA CLICHÉS de IA y etiquetas como "GANCHO", "CONTEXTO" o "HECHO". Habla como un periodista real.
 
 REPORTE BASE: "${reportContent.substring(0, 5000)}"
 TEMA: "${title}"
@@ -202,31 +176,22 @@ Responde en este formato exacto:
 **Meta-Descripción:** (Resumen SEO humano)
 
 ### B. NOTA WEB (ONDA BLOG)
-(Crónica periodística de 500 palabras. Usa subtítulos. Por qué es noticia HOY).
+(Crónica periodística de 300 palabras).
 
-### C. FACEBOOK (COMUNIDAD)
-(Post informativo y cálido. Genera debate respetuoso).
+### D. CARRUSEL DE INSTAGRAM (4 TEXTOS LIMPIOS)
+- **ACTO 1:** (Frase de impacto inicial)
+- **ACTO 2:** (El dato revelador)
+- **ACTO 3:** (La implicación directa)
+- **ACTO 4:** (Frase de cierre final)
 
-### D. CARRUSEL DE INSTAGRAM (4 ACTOS)
-- **SLIDE 1 (GANCHO):** (Gancho visual relacionado al tema)
-- **SLIDE 2 (EL HECHO):** (El dato más fuerte del reporte)
-- **SLIDE 3 (EL CONTEXTO):** (Por qué te afecta a TI el lector)
-- **SLIDE 4 (ACCION):** (Llamado a la acción o reflexión final)
-
-### E. X / TWITTER (HILO)
-(3 posts concatenados con la esencia de la noticia)
-
-### F. TIKTOK / REELS (GUIÓN)
-**Gancho:** (Frase potente para 3s)
-**Desarrollo:** (3 puntos clave)
-**Cierre:** (Reflexión final)
+### F. TIKTOK / REELS (GUIÓN NATURAL)
+**Inicio:** (Frase potente)
+**Cuerpo:** (Puntos clave)
+**Final:** (Reflexión)
 
 ### G. FLYER UNIFICADO
-**TEXTO GIGANTE:** (Máximo 3 palabras clave)
-**SUBTÍTULO:** (Frase de contexto)
-
-### H. CENTRAL DE HASHTAGS
-(Hashtags estratégicos)`;
+**TEXTO:** (Frase corta de 3 palabras)
+**DETALLE:** (Contexto breve)`;
 
   try {
     const { text, lastError } = await generateWithCascade(prompt, 'ONDA-TRANS');
@@ -241,17 +206,14 @@ Responde en este formato exacto:
 **H1:** ${title}
 **Meta-Descripción:** Reporte especial de Onda Radio sobre ${title}.
 
-### B. NOTA WEB
-${reportContent}
-
 ### D. CARRUSEL DE INSTAGRAM
-- **SLIDE 1 (GANCHO):** La verdad sobre **${title}**.
-- **SLIDE 2 (EL HECHO):** Datos verificados sobre la situación actual.
-- **SLIDE 3 (EL CONTEXTO):** Así nos afecta a todos como comunidad.
-- **SLIDE 4 (ACCION):** Mantente informado con Onda Radio.`;
+- **ACTO 1:** La verdad sobre **${title}**.
+- **ACTO 2:** Datos verificados sobre la situación actual.
+- **ACTO 3:** Así nos afecta a todos como comunidad.
+- **ACTO 4:** Mantente informado con Onda Radio.`;
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error('[ONDA-TRANS] Fallo Crítico:', msg);
-    return `# ERROR DE GENERACIÓN\n\nNo se pudo procesar la solicitud.\nMotivo: ${msg}.`;
+    return `# ERROR DE GENERACIÓN\n\nNo se pudo procesar la solicitud.`;
   }
 }

@@ -169,26 +169,27 @@ export function VideoGenerator({ slides, images }: VideoGeneratorProps) {
 
       // ELEMENTO FIJO: Marca de Agua / Branding ONDA superior
       ctx.fillStyle = '#cafb48';
-      ctx.font = '900 42px "Inter", Arial, sans-serif';
+      ctx.font = '900 48px "Inter", Arial, sans-serif'; 
       ctx.globalAlpha = 1;
       ctx.textAlign = 'center';
-      ctx.shadowColor = 'rgba(0,0,0,0.5)';
-      ctx.shadowBlur = 10;
+      ctx.shadowColor = 'rgba(0,0,0,0.8)';
+      ctx.shadowBlur = 15;
       ctx.fillText("ONDA", canvas.width / 2, 120);
       
-      ctx.fillStyle = 'rgba(255,255,255,0.6)';
-      ctx.font = '800 20px "Inter", Arial, sans-serif';
+      ctx.fillStyle = 'white';
+      ctx.font = '800 24px "Inter", Arial, sans-serif';
       ctx.fillText("RADIO REGIONAL", canvas.width / 2, 160);
 
       // MARCA DE AGUA INFERIOR (SITIO WEB Y FECHA)
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '700 24px "Inter", Arial, sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '700 28px "Inter", Arial, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText("ondaradio.com.co", canvas.width / 2, canvas.height - 100);
+      ctx.fillText("ondaradio.com.co", canvas.width / 2, canvas.height - 120);
       
       const today = new Date().toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
-      ctx.font = '500 18px monospace';
-      ctx.fillText(today, canvas.width / 2, canvas.height - 60);
+      ctx.font = '600 22px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(today, canvas.width / 2, canvas.height - 80);
 
       // ANIMACIÓN DE TIPOGRAFÍA: Fase de Fade In Suave para el texto principal
       const textAlpha = Math.min(1, slideFrame / 40); 
