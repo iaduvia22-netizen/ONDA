@@ -26,7 +26,7 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
       latency: Date.now() - startDb,
       message: "Base de datos PostgreSQL sincronizada."
     });
-  } catch (e) {
+  } catch (_e) {
     results.push({
       phase: "FASE 1",
       name: "Sincronía Radioeléctrica",
@@ -39,7 +39,7 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
   // FASE 2: Enlace Satelital (NewsData API)
   const startNews = Date.now();
   try {
-    let key = getActiveKey('NEWSDATA');
+    const key = await getActiveKey('NEWSDATA');
     const res = await fetch(`https://newsdata.io/api/1/latest?apikey=${key}&language=es&size=1`);
     const data = await res.json();
     if (data.status === 'success') {
@@ -53,7 +53,7 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
     } else {
       // PROTOCOLO DE REPARACIÓN FASE 2
       console.warn("[FASE 2] Error detectado. Intentando reparación via rotación de llaves...");
-      rotateKey('NEWSDATA');
+      await rotateKey('NEWSDATA');
       results.push({
         phase: "FASE 2",
         name: "Enlace Satelital",
@@ -62,7 +62,7 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
         message: "Reparación Exitosa: Canal NewsData reconectado via rotación de emergencia."
       });
     }
-  } catch (e) {
+  } catch (_e) {
     results.push({
       phase: "FASE 2",
       name: "Enlace Satelital",
@@ -75,7 +75,7 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
   // FASE 3: Procesamiento Neuronal (Gemini AI)
   const startGemini = Date.now();
   try {
-    let key = getActiveKey('GEMINI');
+    const key = await getActiveKey('GEMINI');
     const genAI = new GoogleGenerativeAI(key);
     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
     const test = await model.generateContent("ping");
@@ -88,10 +88,10 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
           message: "Cerebro Gemini AI sincronizado."
         });
     }
-  } catch (e) {
+  } catch (_e) {
     // PROTOCOLO DE REPARACIÓN FASE 3
     console.warn("[FASE 3] Error AI detectado. Intentando auto-recuperación...");
-    rotateKey('GEMINI');
+    await rotateKey('GEMINI');
     results.push({
       phase: "FASE 3",
       name: "Procesamiento Neuronal",
@@ -104,7 +104,7 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
   // FASE 4: Escaneo OSINT (Tavily AI)
   const startTavily = Date.now();
   try {
-    const key = getActiveKey('TAVILY');
+    const key = await getActiveKey('TAVILY');
     const res = await fetch('https://api.tavily.com/search', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -121,9 +121,9 @@ export async function runPlatformCheckAction(): Promise<HealthStatus[]> {
     } else {
         throw new Error();
     }
-  } catch (e) {
+  } catch (_e) {
     // PROTOCOLO DE REPARACIÓN FASE 4
-    rotateKey('TAVILY');
+    await rotateKey('TAVILY');
     results.push({
       phase: "FASE 4",
       name: "Escaneo OSINT",

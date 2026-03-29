@@ -12,6 +12,7 @@ export function ProtocolMonitor() {
   const [isChecking, setIsChecking] = useState(false);
   const [lastCheck, setLastCheck] = useState<Date | null>(null);
   const { addNotification } = useNotificationStore();
+  const [repairingIdx, setRepairingIdx] = useState<number | null>(null);
 
   const performCheck = useCallback(async (isAuto = false) => {
     if (isChecking) return;
@@ -19,21 +20,52 @@ export function ProtocolMonitor() {
     
     try {
       const results = await runPlatformCheckAction();
-      setStatus(results);
+      
+      // Manejo visual de reparación (Amarillo -> Verde)
+      const repairedIdx = results.findIndex(r => r.status === 'repaired');
+      if (repairedIdx !== -1) {
+          setRepairingIdx(repairedIdx);
+          setStatus(results.map((r, i) => i === repairedIdx ? { ...r, status: 'warning', message: "REPARANDO PROTOCOLO..." } : r));
+          
+          if (!isAuto) {
+              addNotification({
+                title: "AUTO-REPARACIÓN INICIADA",
+                message: `Detectada anomalía en ${results[repairedIdx].name}. Aplicando rotación de emergencia...`,
+                type: 'warning'
+              });
+          }
+
+          // Espera visual para que el usuario vea el "Amarillo"
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          
+          setRepairingIdx(null);
+          setStatus(results.map(r => r.status === 'repaired' ? { ...r, status: 'online' } : r));
+          
+          if (!isAuto) {
+              addNotification({
+                title: "SOLUCIÓN APLICADA",
+                message: `${results[repairedIdx].name} ha sido restaurada con éxito.`,
+                type: 'success'
+              });
+          }
+      } else {
+          setStatus(results);
+      }
+
       setLastCheck(new Date());
 
-      // Notificación si algo falla
-      const failures = results.filter(r => r.status !== 'online');
-      if (failures.length > 0 && !isAuto) {
+      // Notificación de fallos críticos (Rojo)
+      const criticalFailures = results.filter(r => r.status === 'offline');
+      if (criticalFailures.length > 0 && !isAuto) {
           addNotification({
-            title: "ALERTA DE SISTEMA",
-            message: `Fallo detectado en ${failures[0].name}. ${failures[0].message}`,
+            title: "ALERTA CRÍTICA",
+            message: `Fallo irreparable en ${criticalFailures[0].name}. Contacte soporte técnico.`,
             type: 'error'
           });
-      } else if (!isAuto) {
+      } else if (repairedIdx === -1 && !isAuto) {
           addNotification({
             title: "SISTEMA SEGURO",
-            message: "Protocolo de funcionamiento verificado: Todas las fases operativas.",
+            message: "Protocolo verificado: 100% Calibrado.",
             type: 'success'
           });
       }

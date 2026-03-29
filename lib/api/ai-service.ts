@@ -1,12 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { db } from "@/lib/db";
-import { systemSettings } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
-
-/**
- * NÚCLEO DE INTELIGENCIA ONDA V-FINAL (GEMINI CASCADE + SEARCH ENGINE)
- * Integración con Tavily AI para investigación y Gemini (Multi-Modelo Fallback) para redacción.
- */
+import { getActiveKey, VAULT } from "@/lib/vault";
 
 export interface InvestigationResult {
   report: string;
@@ -14,10 +8,6 @@ export interface InvestigationResult {
   entitiesMatched: string[];
 }
 
-import { getActiveKey } from "@/lib/vault";
-
-const TAVILY_API_KEY = getActiveKey('TAVILY');
-const DEFAULT_GEMINI_API_KEY = getActiveKey('GEMINI');
 const OLLAMA_HOST = 'http://localhost:11434';
 
 const MODELS_TO_TRY = [
@@ -25,36 +15,16 @@ const MODELS_TO_TRY = [
     "gemini-1.5-pro",
 ];
 
-
-
 /**
  * Función Maestra de Cascada: Prueba múltiples llaves de la Bóveda y múltiples modelos.
  */
 async function generateWithVaultRotation(prompt: string, contextName: string): Promise<{text: string | null, lastError: string | null}> {
-  // 1. Obtener llaves de la Bóveda
-  let vaultKeys: string[] = [];
-  try {
-    const settings = await db.query.systemSettings.findMany();
-    vaultKeys = settings
-      .filter(s => s.key.startsWith('key') && s.value.trim().length > 0)
-      .map(s => s.value);
-  } catch (e: any) {
-    console.warn(`[${contextName}] No se pudo acceder a la Bóveda DB.`);
-  }
-
-  // Combinar con la llave por defecto al principio
-  let allKeys = [...(DEFAULT_GEMINI_API_KEY ? [DEFAULT_GEMINI_API_KEY] : []), ...vaultKeys];
+  // 1. Obtener llaves de la Bóveda (Unificada)
+  const activeKey = await getActiveKey('GEMINI');
   
-  if (allKeys.length === 0) {
-    return { text: null, lastError: "No hay configurada ninguna llave de API de Gemini." };
-  }
-
-  // Priorizar la llave por defecto (ya está primera), solo mezclar las de la bóveda
-  if (allKeys.length > 1) {
-    const [defaultKey, ...rest] = allKeys;
-    allKeys = [defaultKey, ...rest.sort(() => Math.random() - 0.5)];
-  }
-
+  // Ponemos la activa primero, y luego todas las demás de la VAULT para rotación local
+  const allKeys = [activeKey, ...VAULT.GEMINI.filter(k => k !== activeKey)];
+  
   let lastError = null;
 
   // LOOP 1: Rotación de Llaves (API Keys)
@@ -70,7 +40,7 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
           model: modelName,
           generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 4096, // Limitar output para evitar generación desbordada
+            maxOutputTokens: 4096,
           },
         });
         const result = await model.generateContent(prompt);
@@ -84,8 +54,6 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
         lastError = error.message || "Error desconocido";
         console.warn(`[${contextName}] (Key ${keyIdx+1}) Fallo ${modelName}: ${lastError.split('[')[0]}`);
         
-        // CATCH-ALL: Si la llave tiene problemas (403, 404, 400 Bad Request por Leaked Key, 429 quota)
-        // Saltamos de inmediato a la siguiente llave.
         if (
             lastError.includes("429") || 
             lastError.includes("403") || 
@@ -95,27 +63,20 @@ async function generateWithVaultRotation(prompt: string, contextName: string): P
             lastError.toLowerCase().includes("leaked") ||
             lastError.toLowerCase().includes("invalid")
         ) {
-          console.warn(`[${contextName}] Llave ${keyIdx+1} DESCARTADA (${lastError.split(' ')[0]}). Saltando...`);
-          break; // Rompe el loop de modelos y va a la siguiente llave
+          console.warn(`[${contextName}] Llave ${keyIdx+1} DESCARTADA. Saltando...`);
+          break; 
         }
       }
     }
   }
-  
-  return { text: null, lastError };
+
+  return { text: null, lastError: lastError };
 }
 
 export class InvestigationEngine {
   static async start(title: string, context: string): Promise<InvestigationResult> {
     console.log(`[ONDA-INTEL] Iniciando investigación de Alto Nivel para: ${title}`);
-
-    if (!TAVILY_API_KEY) {
-      return {
-        report: "# ERROR DE RED\n\nFalta la clave de investigación (Tavily).",
-        sourcesFound: 0,
-        entitiesMatched: []
-      };
-    }
+    const tavilyKey = await getActiveKey('TAVILY');
 
     try {
       // 1. ESCANEO OSINT DE NIVEL RADICAL
@@ -123,16 +84,18 @@ export class InvestigationEngine {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          api_key: TAVILY_API_KEY,
+          api_key: tavilyKey,
           query: `${title} ${context}`,
           search_depth: "advanced",
           include_images: true, 
           include_answer: false,
-          max_results: 7 // 7 fuentes son suficientes para un reporte sólido (ahorro ~30% tokens)
+          max_results: 7
         })
       });
 
-      const searchData = await searchResponse.json();
+      if (!searchResponse.ok) throw new Error("Fallo en el enlace con Tavily AI.");
+      
+      const searchData: any = await searchResponse.json();
       const safeResults = (searchData.results && Array.isArray(searchData.results)) ? searchData.results : [];
       
       interface TavilyImage {
@@ -321,10 +284,10 @@ Responde en este formato exacto (markdown):
       });
         
       if (aiResponse.ok) {
-          const data = await aiResponse.json();
+          const data: any = await aiResponse.json();
           if (data.response) return data.response;
       }
-    } catch (e) {
+    } catch (_e) {
       console.warn("[ONDA-TRANS] IA Local no disponible.");
     }
 
