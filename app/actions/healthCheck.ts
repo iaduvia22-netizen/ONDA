@@ -7,7 +7,7 @@ import { getActiveKey, rotateKey } from '@/lib/vault';
 export interface HealthStatus {
   phase: string;
   name: string;
-  status: 'online' | 'offline' | 'repaired';
+  status: 'online' | 'offline' | 'repaired' | 'warning';
   latency: number;
   message: string;
 }
