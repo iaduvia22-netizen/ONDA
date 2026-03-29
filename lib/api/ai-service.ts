@@ -153,18 +153,26 @@ export class InvestigationEngine {
       // Bloque separado de URLs para incluir solo en el reporte final
       const sourcesBlock = safeResults.map((r: any, i: number) => `- [Fuente ${i+1}](${r.url})`).join('\n');
 
-      // PROMPT: Periodismo responsable y constructivo
-      const prompt = `Periodista de Onda Radio. Redacta informe verificado SOLO con datos de las fuentes. No inventes. Si falta dato: "NO VERIFICADO".
-Tono: Profesional, claro, equilibrado. NO amarillismo. NO polarizar. NO especular.
+// PROMPT: Periodismo responsable y especializado
+      const prompt = `Actúa como Director de Inteligencia de Onda Radio. Analiza estas fuentes para detectar la VERDAD central, el impacto CIUDADANO y los datos DUROS.
+No hagas un resumen genérico. Encuentra el "ángulo humano" y las consecuencias reales.
 
-FUENTES:
+FUENTES DE INTELIGENCIA:
 ${evidenceBlock}
 
-FORMATO:
-1. TÍTULO INFORMATIVO (claro, preciso, sin exagerar)
-2. HECHOS VERIFICADOS (bullets: cifras, nombres, fechas)
-3. CONTEXTO (3 párrafos: qué pasó, por qué importa, qué sigue)
-4. FUENTES:
+ESTRUCTURA DEL REPORTE (Markdown):
+# 📡 REPORTE DE INTELIGENCIA: [TÍTULO IMPACTANTE]
+### 🔍 HALLAZGOS CLAVE
+- [Dato 1 con cifra]
+- [Dato 2 con implicación]
+...
+
+### 📝 ANÁLISIS DE IMPACTO
+- **Contexto:** (Qué está pasando realmente detrás de los titulares)
+- **Impacto Local:** (Cómo afecta al ciudadano de a pie)
+- **Prospección:** (Qué podemos esperar en las próximas 72 horas)
+
+### 📚 FUENTES VERIFICADAS
 ${sourcesBlock}`;
 
       let reportText = "";
@@ -248,74 +256,62 @@ export async function runInvestigation(title: string, context: string): Promise<
   return await InvestigationEngine.start(title, context);
 }
 
-// 🚀 PROTOCOLO DE ESTRATEGIA DIGITAL "ONDA" V-FINAL (CON ROTACIÓN DE IA INTEGRADA)
+// 🚀 PROTOCOLO DE ESTRATEGIA DIGITAL "ONDA" V-FINAL 
 export async function generateTransmediaPack(reportContent: string, title: string): Promise<string> {
-  // PROMPT: Periodismo constructivo y responsable
-  const prompt = `Estratega de contenido digital de Onda Radio.
-TONO: Claro, cercano, humano, propositivo. Lenguaje accesible para la comunidad.
-REGLAS EDITORIALES:
-- NO amarillismo, NO clickbait engañoso, NO polarizar.
-- NO usar palabras como "URGENTE", "BOMBA", "ESCÁNDALO" salvo que sea estrictamente factual.
-- NO especular ni generar miedo. Priorizar la información útil para el ciudadano.
-- Incluir contexto y soluciones cuando sea posible.
-- Ser empático sin ser manipulador.
+  const prompt = `Actúa como Estratega Digital Senior para Onda Radio. Tu misión es transformar este reporte técnico en una narrativa transmedia HUMANA, COHERENTE y VIRAL. 
+EVITA los clichés de IA ("¿Sabías que...?", "Descubre aquí..."). Habla como un periodista real que le cuenta algo importante a su comunidad.
 
-MISIÓN: Transformar este informe en contenido social que informe, eduque y genere conversación constructiva.
+REPORTE BASE: "${reportContent.substring(0, 5000)}"
+TEMA: "${title}"
 
-INFORME: "${reportContent.substring(0, 6000)}"
-TITULO: "${title}"
+Responde en este formato exacto (markdown):
 
-Responde en este formato exacto (markdown, sin preámbulos):
+### A. EL TITULAR MAESTRO
+**H1:** (Un titular que atrape pero sea 100% veraz)
+**Meta-Descripción:** (Resumen SEO humano)
 
-  ### A. EL TITULAR MAESTRO
-  **H1:** (Titular claro e informativo que resuma el hecho central. Sin exaggerar).
-  **Meta-Descripción:** (Resumen SEO <140 chars, preciso y honesto).
+### B. NOTA WEB (ONDA BLOG)
+(Escribe una crónica periodística de 500 palabras. Usa subtítulos. Céntrate en por qué esto es noticia HOY).
 
-  ### B. BLOG / WEB
-  (Reportaje 500 palabras. Estructura: H1, Contexto, Desarrollo con datos, Voces/Citas, Impacto ciudadano, Perspectiva a futuro).
+### C. FACEBOOK (COMUNIDAD)
+(Post informativo pero cálido. Genera debate respetuoso sobre el tema).
 
-  ### C. FACEBOOK
-  (Copy conversacional e informativo. Presenta el hecho -> Explica por qué importa -> Invita a opinar con respeto).
+### D. CARRUSEL DE INSTAGRAM (4 ACTOS)
+(IMPORTANTE: Cada slide debe contar una parte de la historia. Usa **negritas dobles** para las palabras que quieras destacar en VERDE ONDA).
+- **SLIDE 1 (GANCHO):** (Un gancho visual disruptivo pero relacionado al tema. Ejemplo: "La verdad sobre el **[Tema]** en nuestra ciudad").
+- **SLIDE 2 (EL HECHO):** (El dato más fuerte extraído del reporte).
+- **SLIDE 3 (EL CONTEXTO):** (Por qué esto te afecta a TI, el lector).
+- **SLIDE 4 (ACCION):** (Un llamado a la acción real o reflexión final).
 
-  ### D. INSTAGRAM
-  (Carrusel Story 4 Actos. Texto claro y directo).
-  - SLIDE 1 (EL GANCHO): (Pregunta informativa o dato relevante que MENCIONE el tema concreto. Ejemplo: "¿Sabías que [dato real]?" o "Esto es lo que debes saber sobre [tema]". Máx 15 palabras. Sin clickbait).
-  - SLIDE 2 (EL HECHO): (El dato central verificado, con cifras si las hay. Máx 20 palabras).
-  - SLIDE 3 (EL CONTEXTO): (Por qué importa esto para la comunidad. Dato humano o cita. Máx 20 palabras).
-  - SLIDE 4 (CONVERSACIÓN): (Invitación respetuosa a opinar + compartir para informar. Máx 15 palabras).
+### E. X / TWITTER (HILO)
+(3 posts concatenados con la esencia de la noticia).
 
-  ### E. X / TWITTER
-  (3 Tweets informativos: 1. Hecho principal 2. Dato de contexto 3. Invitación a leer más).
+### F. TIKTOK / REELS (GUIÓN)
+**Gancho:** (Frase potente para 3s)
+**Desarrollo:** (3 puntos clave)
+**Cierre:** (Reflexión final)
 
-  ### F. TIKTOK / REELS
-  **Gancho:** (Frase informativa que enganche en 3s, sin alarma falsa).
-  **Cuerpo:** (Explicación clara en 3 puntos).
-  **CTA:** (Invitación a informarse y compartir).
+### G. FLYER UNIFICADO
+**TEXTO GIGANTE:** (Máximo 3 palabras clave)
+**SUBTÍTULO:** (Frase de contexto)
 
-  ### G. FLYER UNIFICADO
-  *Instrucción Visual:* (Composición limpia y profesional).
-  **TEXTO GIGANTE:** (Máx 4 palabras, informativo).
-  **SUBTÍTULO:** (Contexto breve).
-
-  ### H. CENTRAL DE HASHTAGS
-  - **INSTAGRAM & TIKTOK:** #Tema #Información #Ciudad #OndaRadio #Comunidad
-  - **X / TWITTER:** #Tag1 #Tag2 #OndaRadio
-  - **FACEBOOK:** #Tag1 #Tag2 #OndaRadio`;
+### H. CENTRAL DE HASHTAGS
+(Hashtags estratégicos)`;
 
   try {
-    // 1. INTENTO CON GEMINI CASCADE Y BÓVEDA DE LLAVES
+     // 1. INTENTO CON GEMINI CASCADE Y BÓVEDA DE LLAVES
     const { text, lastError } = await generateWithVaultRotation(prompt, "ONDA-TRANS");
     if (text) return text;
     console.warn("[ONDA-TRANS] Bóveda de IA falló por completo:", lastError);
     
-    // 2. INTENTO CON OLLAMA (Local)
+    // 2. INTENTO CON OLLAMA (Local) - Solo si Gemini falla
     try {
-      console.log(`[ONDA-TRANS] Intentando IA Local (${process.env.MODEL_NAME || 'llama3'})...`);
+      console.log(`[ONDA-TRANS] Intentando IA Local...`);
       const aiResponse = await fetch(`${OLLAMA_HOST}/api/generate`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
-              model: process.env.MODEL_NAME || 'llama3', 
+              model: 'llama3', 
               prompt: prompt, 
               stream: false 
           }), 
@@ -324,49 +320,27 @@ Responde en este formato exacto (markdown, sin preámbulos):
         
       if (aiResponse.ok) {
           const data = await aiResponse.json();
-          if (data.response && data.response.trim().length > 0) {
-              return data.response;
-          }
+          if (data.response) return data.response;
       }
     } catch (e) {
       console.warn("[ONDA-TRANS] IA Local no disponible.");
     }
 
-    // 3. SUPER FALLBACK: GENERACIÓN POR REGLAS (SI TODO FALLA)
-    console.warn("[ONDA-TRANS] Ejecutando Protocolo de Emergencia No-IA...");
-    const summary = reportContent.substring(0, 500).replace(/[*#]/g, '').trim();
-    
+    // 3. SUPER FALLBACK: GENERACIÓN POR REGLAS
     return `
-### A. EL TITULAR MAESTRO (SEO & Copy)
+### A. EL TITULAR MAESTRO
 **H1:** ${title}
 **Meta-Descripción:** Reporte especial de Onda Radio sobre ${title}.
 
-### B. BLOG / WEB (La Noticia Completa)
+### B. NOTA WEB
 ${reportContent}
 
-### C. FACEBOOK (Generando Conversación)
-Acabamos de publicar un análisis profundo sobre: ${title}. ¿Qué opinas al respecto? Los leemos.
-
-### D. INSTAGRAM (Carrusel de 4 Actos "Onda" - Formato 1080x1920)
-- **SLIDE 1 (EL GANCHO):** ¿Qué debes saber sobre "${title.substring(0, 60)}"? Te lo explicamos.
-- **SLIDE 2 (EL HECHO):** ${title} — los datos verificados que necesitas conocer.
-- **SLIDE 3 (EL CONTEXTO):** Así impacta esta situación a nuestra comunidad.
-- **SLIDE 4 (CONVERSACIÓN):** ¿Qué opinas sobre ${title.substring(0, 40)}? Comparte para informar.
-
-### E. X / TWITTER (Informativo)
-${title} — Te contamos los detalles verificados. #OndaRadio #Noticias
-
-### F. TIKTOK / REELS (Guion Vertical)
-**Gancho:** Esto es lo que debes saber sobre ${title}.
-**Cuerpo:** 1. El hecho. 2. El contexto. 3. Lo que sigue.
-**CTA:** Comparte para que más personas estén informadas.
-
-### G. FLYER UNIFICADO (Concepto Visual)
-*Instrucción Visual:* Diseño limpio y profesional con el logo de Onda Radio.
-**TEXTO GIGANTE:** ${title.substring(0, 20).toUpperCase()}
-**SUBTÍTULO:** Información Verificada.
+### D. CARRUSEL DE INSTAGRAM
+- **SLIDE 1 (GANCHO):** La verdad sobre **${title}**.
+- **SLIDE 2 (EL HECHO):** Datos verificados sobre la situación actual.
+- **SLIDE 3 (EL CONTEXTO):** Así nos afecta a todos como comunidad.
+- **SLIDE 4 (ACCION):** Mantente informado con Onda Radio.
     `;
-
   } catch (error: any) {
     console.error("[ONDA-TRANS] Fallo Crítico:", error);
     return `# ERROR DE GENERACIÓN\n\nEl estratega digital no pudo procesar la solicitud.\nMotivo: ${error.message}.`;

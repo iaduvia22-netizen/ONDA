@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 interface VideoSlide {
   content: string;
+  title: string;
 }
 
 interface VideoGeneratorProps {
@@ -166,18 +167,28 @@ export function VideoGenerator({ slides, images }: VideoGeneratorProps) {
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-      // ELEMENTO FIJO: Marca de Agua / Branding ONDA inferior
-      ctx.fillStyle = 'rgba(255,255,255,0.4)';
-      ctx.font = '800 24px "Inter", Arial, sans-serif';
+      // ELEMENTO FIJO: Marca de Agua / Branding ONDA superior
+      ctx.fillStyle = '#cafb48';
+      ctx.font = '900 42px "Inter", Arial, sans-serif';
       ctx.globalAlpha = 1;
       ctx.textAlign = 'center';
-      ctx.fillText("ONDA RADIO REGIONAL", canvas.width / 2, canvas.height - 80);
-
-      // (Subtítulos estructurados "Gancho, Datos, etc" removidos para estética limpia)
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 10;
+      ctx.fillText("ONDA", canvas.width / 2, 120);
       
+      ctx.fillStyle = 'rgba(255,255,255,0.6)';
+      ctx.font = '800 20px "Inter", Arial, sans-serif';
+      ctx.fillText("RADIO REGIONAL", canvas.width / 2, 160);
+
+      // SUBTÍTULO ESTRUCTURADO (FASE DEL ACTO)
+      const phaseLabel = slides[slideIdx].title.split(':')[1]?.trim() || slides[slideIdx].title;
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.font = '700 24px "Inter", Arial, sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`⚡ ${phaseLabel.toUpperCase()}`, 80, canvas.height - 180);
 
       // ANIMACIÓN DE TIPOGRAFÍA: Fase de Fade In Suave para el texto principal
-      const textAlpha = Math.min(1, slideFrame / 40); // Tarda 40 frames (~1.3s) en aparecer completo
+      const textAlpha = Math.min(1, slideFrame / 40); 
       ctx.globalAlpha = textAlpha;
       ctx.textAlign = 'center';
       
