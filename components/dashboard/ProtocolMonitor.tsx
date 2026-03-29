@@ -21,30 +21,29 @@ export function ProtocolMonitor() {
     try {
       const results = await runPlatformCheckAction();
       
-      // Manejo visual de reparación (Amarillo -> Verde)
-      const repairedIdx = results.findIndex(r => r.status === 'repaired');
-      if (repairedIdx !== -1) {
-          setRepairingIdx(repairedIdx);
-          setStatus(results.map((r, i) => i === repairedIdx ? { ...r, status: 'warning', message: "REPARANDO PROTOCOLO..." } : r));
+      // Manejo visual de reparación (Amarillo -> Online/Repaired)
+      const hasRepairs = results.some(r => r.status === 'repaired');
+      if (hasRepairs) {
+          // Mostrar TODO lo que se reparó en AMARILLO primero
+          setStatus(results.map(r => r.status === 'repaired' ? { ...r, status: 'warning', message: "REPARANDO PROTOCOLO..." } : r));
           
           if (!isAuto) {
               addNotification({
-                title: "AUTO-REPARACIÓN INICIADA",
-                message: `Detectada anomalía en ${results[repairedIdx].name}. Aplicando rotación de emergencia...`,
+                title: "REPSONDOR DE EMERGENCIA",
+                message: `Detectadas anomalías. Aplicando protocolos de auto-curación...`,
                 type: 'warning'
               });
           }
 
-          // Espera visual para que el usuario vea el "Amarillo"
           await new Promise(resolve => setTimeout(resolve, 3000));
           
-          setRepairingIdx(null);
-          setStatus(results.map(r => r.status === 'repaired' ? { ...r, status: 'online' } : r));
+          // Pasar todo a online (visualmente) para dar tranquilidad, o mantener 'repaired' con color azul
+          setStatus(results);
           
           if (!isAuto) {
               addNotification({
-                title: "SOLUCIÓN APLICADA",
-                message: `${results[repairedIdx].name} ha sido restaurada con éxito.`,
+                title: "SISTEMA RECUPERADO",
+                message: `Las fases afectadas han sido restauradas via Bóveda.`,
                 type: 'success'
               });
           }
@@ -59,10 +58,10 @@ export function ProtocolMonitor() {
       if (criticalFailures.length > 0 && !isAuto) {
           addNotification({
             title: "ALERTA CRÍTICA",
-            message: `Fallo irreparable en ${criticalFailures[0].name}. Contacte soporte técnico.`,
+            message: `Fallo irreparable en ${criticalFailures[0].name}.`,
             type: 'error'
           });
-      } else if (repairedIdx === -1 && !isAuto) {
+      } else if (!hasRepairs && !isAuto) {
           addNotification({
             title: "SISTEMA SEGURO",
             message: "Protocolo verificado: 100% Calibrado.",
@@ -88,6 +87,13 @@ export function ProtocolMonitor() {
     if (phase === "FASE 2") return <Wifi size={14} />;
     if (phase === "FASE 3") return <Cpu size={14} />;
     return <Globe size={14} />;
+  }
+
+  const getStatusColor = (status: HealthStatus['status']) => {
+    if (status === 'online') return "primary";
+    if (status === 'warning') return "yellow-500";
+    if (status === 'repaired') return "cyan-400"; // Color especial para reparado
+    return "red-500";
   }
 
   return (
@@ -121,48 +127,54 @@ export function ProtocolMonitor() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 relative z-10">
-        {status.length > 0 ? status.map((item, idx) => (
-          <motion.div 
-            key={idx}
-            initial={{ opacity: 0, scale: 0.98 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: idx * 0.1 }}
-            className={cn(
-               "p-4 rounded-2xl border transition-all duration-300 flex items-center gap-4 relative overflow-hidden",
-               item.status === 'online' ? "bg-primary/5 border-primary/10" : 
-               item.status === 'warning' ? "bg-yellow-500/5 border-yellow-500/20" : 
-               "bg-red-500/5 border-red-500/20"
-            )}
-          >
-            <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-              item.status === 'online' ? "bg-primary/10 text-primary" : 
-              item.status === 'warning' ? "bg-yellow-500/10 text-yellow-500" :
-              "bg-red-500/10 text-red-500"
-            )}>
-              {getIcon(item.phase)}
-            </div>
+        {status.length > 0 ? status.map((item, idx) => {
+          const color = getStatusColor(item.status);
+          return (
+            <motion.div 
+              key={idx}
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: idx * 0.1 }}
+              className={cn(
+                "p-4 rounded-2xl border transition-all duration-300 flex items-center gap-4 relative overflow-hidden",
+                item.status === 'online' ? "bg-primary/5 border-primary/10" : 
+                item.status === 'warning' ? "bg-yellow-500/5 border-yellow-500/20" : 
+                item.status === 'repaired' ? "bg-cyan-400/5 border-cyan-400/20" :
+                "bg-red-500/5 border-red-500/20"
+              )}
+            >
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                item.status === 'online' ? "bg-primary/10 text-primary" : 
+                item.status === 'warning' ? "bg-yellow-500/10 text-yellow-500" :
+                item.status === 'repaired' ? "bg-cyan-400/10 text-cyan-400" :
+                "bg-red-500/10 text-red-500"
+              )}>
+                {getIcon(item.phase)}
+              </div>
 
-            <div className="flex-1 min-w-0">
-               <div className="flex items-center gap-2">
-                 <span className="text-[9px] font-mono text-white/20">{item.phase}</span>
-                 {item.status === 'online' && <span className="text-primary font-mono text-[8px] tracking-tighter">{item.latency}ms</span>}
-               </div>
-               <h4 className="text-xs font-black text-white uppercase truncate">{item.name}</h4>
-               <p className={cn(
-                 "text-[10px] truncate mt-0.5",
-                 item.status === 'online' ? "text-white/40" : "text-white/60"
-               )}>{item.message}</p>
-            </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-mono text-white/20">{item.phase}</span>
+                  {item.status === 'online' && <span className="text-primary font-mono text-[8px] tracking-tighter">{item.latency}ms</span>}
+                </div>
+                <h4 className="text-xs font-black text-white uppercase truncate">{item.name}</h4>
+                <p className={cn(
+                  "text-[10px] truncate mt-0.5",
+                  (item.status === 'online' || item.status === 'repaired') ? "text-white/40" : "text-white/60"
+                )}>{item.message}</p>
+              </div>
 
-            <div className={cn(
-               "w-1.5 h-1.5 rounded-full absolute top-4 right-4 animate-pulse",
-               item.status === 'online' ? "bg-primary shadow-[0_0_8px_rgba(202,251,72,0.6)]" : 
-               item.status === 'warning' ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" : 
-               "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
-            )} />
-          </motion.div>
-        )) : (
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full absolute top-4 right-4 animate-pulse",
+                item.status === 'online' ? "bg-primary shadow-[0_0_8px_rgba(202,251,72,0.6)]" : 
+                item.status === 'warning' ? "bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.6)]" : 
+                item.status === 'repaired' ? "bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.6)]" :
+                "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]"
+              )} />
+            </motion.div>
+          );
+        }) : (
           [1,2,3,4].map(i => (
              <div key={i} className="p-10 bg-white/[0.02] border border-white/5 rounded-2xl animate-pulse" />
           ))
