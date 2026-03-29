@@ -4,10 +4,11 @@ import { NewsArticle } from '@/lib/api/types';
 
 import { getActiveKey } from '@/lib/vault';
 
-const API_KEY = getActiveKey('NEWSDATA');
 const BASE_URL = 'https://newsdata.io/api/1/latest';
 
 export async function fetchNewsAction(category?: string, query?: string, countryCode?: string): Promise<NewsArticle[]> {
+  const API_KEY = await getActiveKey('NEWSDATA');
+  
   if (!API_KEY) {
     console.warn('⚠️ API Key no encontrada en el servidor (process.env.NEWSDATA_API_KEY is undefined)');
     return [];
