@@ -3,11 +3,12 @@
 import { useEffect, useState } from 'react';
 import { StatsCard } from '@/components/dashboard/StatsCard';
 import { NewsFeed } from '@/components/dashboard/NewsFeed';
-import { Newspaper, TrendingUp, AlertCircle, Clock, Loader2 } from 'lucide-react';
+import { Newspaper, TrendingUp, Globe, Radio, Clock, Loader2 } from 'lucide-react';
 import { useNewsStore } from '@/lib/store/newsStore';
 import { fetchNewsAction } from '@/app/actions/fetchNews';
 import { DigitalClock } from '@/components/dashboard/DigitalClock';
 import { GlobeDemo } from '@/components/dashboard/GlobeDemo';
+import { ProtocolMonitor } from '@/components/dashboard/ProtocolMonitor';
 
 export default function Home() {
   const { articles, setArticles, _hasHydrated } = useNewsStore();
@@ -68,15 +69,21 @@ export default function Home() {
         </div>
       </header>
 
-      {/* DASHBOARD TOP ROW: CLOCK & MAP & STATS */}
-      <section aria-label="Métricas Principales" className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+      {/* DASHBOARD TOP ROW: MONITOR, CLOCK & STATS */}
+      <section aria-label="Monitoreo y Métricas" className="grid grid-cols-1 md:grid-cols-12 gap-8 mb-6">
+        {/* Protocol Monitor (8 cols) */}
+        <div className="md:col-span-12 lg:col-span-8">
+            <ProtocolMonitor />
+        </div>
+
         {/* Clock (4 cols) */}
         <div className="md:col-span-12 lg:col-span-4 h-full">
             <DigitalClock />
         </div>
-        
-        {/* Stats Grid */}
-        <div className="md:col-span-12 lg:col-span-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 h-full">
+      </section>
+
+      {/* STATS ROW */}
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
              <StatsCard
                 label="Frecuencia de Noticias"
                 value={articles.length.toString()}
@@ -92,23 +99,22 @@ export default function Home() {
                 trendUp={true}
             />
              <StatsCard
-                label="Alertas Críticas"
-                value="0"
-                icon={AlertCircle}
+                label="Sondeos Activos"
+                value="1.2k"
+                icon={Globe}
                 trend="Vigilancia Activa"
                 trendUp={true}
             />
-             <div className="bg-surface border border-border rounded-xl p-4 flex flex-col justify-center items-center text-center h-full group hover:border-primary/30 transition-all duration-300">
-                  <h4 className="text-text-muted text-sm font-medium mb-1">Estado de Red</h4>
-                  <div className="text-xl font-bold text-green-500 flex items-center gap-2">
-                     <span className="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.5)]"/>
-                     CONECTADO
-                  </div>
-             </div>
-        </div>
+             <StatsCard
+                label="Estado de Red"
+                value="ESTABLE"
+                icon={Radio}
+                trend="Conectado"
+                trendUp={true}
+            />
       </section>
 
-      {/* ROW 2: VISUALIZATION (Globe Only) */}
+      {/* ROW 3: VISUALIZATION (Globe Only) */}
       <section aria-label="Visualización Geográfica" className="grid grid-cols-1 gap-6 h-auto min-h-[500px] mb-8">
             <div className="relative h-[600px] bg-surface/30 rounded-2xl border border-border overflow-hidden group">
                  <div className="absolute top-4 left-4 z-10 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-[10px] font-bold text-primary border border-primary/20">GLOBAL RADAR</div>
