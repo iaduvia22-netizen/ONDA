@@ -1,6 +1,5 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import { db } from "@/lib/db";
-import { getActiveKey, VAULT } from "@/lib/vault";
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getActiveKey, rotateKey, VAULT } from '@/lib/vault';
 
 export interface InvestigationResult {
   report: string;
@@ -8,118 +7,140 @@ export interface InvestigationResult {
   entitiesMatched: string[];
 }
 
-const OLLAMA_HOST = 'http://localhost:11434';
+const OLLAMA_HOST = process.env.OLLAMA_HOST || 'http://localhost:11434';
 
-const MODELS_TO_TRY = [
-    "gemini-1.5-flash",
-    "gemini-1.5-pro",
-];
+const GEMINI_MODELS = ['gemini-1.5-flash', 'gemini-1.5-pro'];
 
-/**
- * Función Maestra de Cascada: Prueba múltiples llaves de la Bóveda y múltiples modelos.
- */
-async function generateWithVaultRotation(prompt: string, contextName: string): Promise<{text: string | null, lastError: string | null}> {
-  // 1. Obtener llaves de la Bóveda (Unificada)
-  const activeKey = await getActiveKey('GEMINI');
-  
-  // Ponemos la activa primero, y luego todas las demás de la VAULT para rotación local
-  const allKeys = [activeKey, ...VAULT.GEMINI.filter(k => k !== activeKey)];
-  
-  let lastError = null;
+// ──────────────────────────────────────────────
+// CORE: Gemini multi-key, multi-model cascade
+// ──────────────────────────────────────────────
+async function generateWithCascade(
+  prompt: string,
+  ctx: string
+): Promise<{ text: string | null; lastError: string | null }> {
+  const active = getActiveKey('GEMINI');
+  const allKeys = [active, ...VAULT.GEMINI.filter((k) => k !== active)];
 
-  // LOOP 1: Rotación de Llaves (API Keys)
-  for (const [keyIdx, apiKey] of allKeys.entries()) {
+  let lastError: string | null = null;
+
+  for (const [ki, apiKey] of allKeys.entries()) {
     const genAI = new GoogleGenerativeAI(apiKey);
-    
-    // LOOP 2: Rotación de Modelos para esta llave
-    for (const modelName of MODELS_TO_TRY) {
+
+    for (const modelName of GEMINI_MODELS) {
       try {
-        console.log(`[${contextName}] (Key ${keyIdx+1}/${allKeys.length}) Intentando modelo: ${modelName}...`);
-        
+        console.log(`[${ctx}] Key ${ki + 1}/${allKeys.length} — ${modelName}`);
         const model = genAI.getGenerativeModel({
           model: modelName,
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 4096,
-          },
+          generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
         });
         const result = await model.generateContent(prompt);
         const text = result.response.text();
-        
-        if (text && text.trim().length > 0) {
-           return { text, lastError: null };
-        }
+        if (text?.trim()) return { text, lastError: null };
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : String(err);
+        lastError = msg;
+        console.warn(`[${ctx}] Key ${ki + 1} / ${modelName} falló: ${msg.slice(0, 80)}`);
 
-      } catch (error: any) {
-        lastError = error.message || "Error desconocido";
-        console.warn(`[${contextName}] (Key ${keyIdx+1}) Fallo ${modelName}: ${lastError.split('[')[0]}`);
-        
-        if (
-            lastError.includes("429") || 
-            lastError.includes("403") || 
-            lastError.includes("404") || 
-            lastError.includes("400") || 
-            lastError.toLowerCase().includes("not found") ||
-            lastError.toLowerCase().includes("leaked") ||
-            lastError.toLowerCase().includes("invalid")
-        ) {
-          console.warn(`[${contextName}] Llave ${keyIdx+1} DESCARTADA. Saltando...`);
-          break; 
+        // Skip to next key on auth/quota errors
+        if (/429|403|400|invalid|leaked|not found/i.test(msg)) {
+          rotateKey('GEMINI');
+          break;
         }
       }
     }
   }
 
-  return { text: null, lastError: lastError };
+  return { text: null, lastError };
+}
+
+// Ollama fallback (local model, ignored if unreachable)
+async function tryOllama(prompt: string, ctx: string): Promise<string | null> {
+  try {
+    console.log(`[${ctx}] Intentando Ollama local…`);
+    const res = await fetch(`${OLLAMA_HOST}/api/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: process.env.MODEL_NAME || 'llama3',
+        prompt,
+        stream: false,
+      }),
+      signal: AbortSignal.timeout(90000),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return (data.response as string) || null;
+    }
+  } catch {
+    console.warn(`[${ctx}] Ollama no disponible.`);
+  }
+  return null;
+}
+
+// ──────────────────────────────────────────────
+// Research engine
+// ──────────────────────────────────────────────
+interface TavilySource {
+  title: string;
+  content: string;
+  url: string;
+}
+
+interface TavilyImage {
+  url: string;
+  [key: string]: unknown;
 }
 
 export class InvestigationEngine {
   static async start(title: string, context: string): Promise<InvestigationResult> {
-    console.log(`[ONDA-INTEL] Iniciando investigación de Alto Nivel para: ${title}`);
-    const tavilyKey = await getActiveKey('TAVILY');
+    console.log(`[ONDA-INTEL] Iniciando investigación: ${title}`);
+    const tavilyKey = getActiveKey('TAVILY');
+
+    let safeResults: TavilySource[] = [];
+    let images: string[] = [];
+    let rawImageUrls: string[] = [];
 
     try {
-      // 1. ESCANEO OSINT DE NIVEL RADICAL
-      const searchResponse = await fetch('https://api.tavily.com/search', {
+      const searchRes = await fetch('https://api.tavily.com/search', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           api_key: tavilyKey,
           query: `${title} ${context}`,
-          search_depth: "advanced",
-          include_images: true, 
+          search_depth: 'advanced',
+          include_images: true,
           include_answer: false,
-          max_results: 7
-        })
+          max_results: 7,
+        }),
       });
 
-      if (!searchResponse.ok) throw new Error("Fallo en el enlace con Tavily AI.");
-      
-      const searchData: any = await searchResponse.json();
-      const safeResults = (searchData.results && Array.isArray(searchData.results)) ? searchData.results : [];
-      
-      interface TavilyImage {
-        url: string;
-        [key: string]: unknown;
-      }
-      
+      if (!searchRes.ok) throw new Error(`Tavily ${searchRes.status}`);
+
+      const searchData = await searchRes.json();
+      safeResults = Array.isArray(searchData.results) ? searchData.results : [];
+
       const rawImages: (string | TavilyImage)[] = searchData.images || [];
-      const images = rawImages.map((img) => {
-        const url = typeof img === 'string' ? img : img.url;
-        return `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}&n=-1`;
-      });
-      
-      // Construir Bloque de Evidencia (optimizado: truncar contenido largo, sin URLs en prompt)
-      const evidenceBlock = safeResults.map((r: any, i: number) => {
-         const truncatedContent = r.content?.substring(0, 500) || ''; // Truncar a 500 chars max por fuente
-         return `[F${i+1}] ${r.title}\n${truncatedContent}`;
-      }).join('\n---\n');
+      rawImageUrls = rawImages.map((img) =>
+        typeof img === 'string' ? img : img.url
+      );
+      images = rawImageUrls.map(
+        (url) =>
+          `https://images.weserv.nl/?url=${encodeURIComponent(url)}&default=${encodeURIComponent(url)}&n=-1`
+      );
+    } catch (err) {
+      console.warn('[ONDA-INTEL] Tavily falló:', err);
+      rotateKey('TAVILY');
+    }
 
-      // Bloque separado de URLs para incluir solo en el reporte final
-      const sourcesBlock = safeResults.map((r: any, i: number) => `- [Fuente ${i+1}](${r.url})`).join('\n');
+    const evidenceBlock = safeResults
+      .map((r, i) => `[F${i + 1}] ${r.title}\n${r.content?.substring(0, 500) || ''}`)
+      .join('\n---\n');
 
-// PROMPT: Periodismo responsable y especializado
-      const prompt = `Actúa como Director de Inteligencia de Onda Radio. Analiza estas fuentes para detectar la VERDAD central, el impacto CIUDADANO y los datos DUROS.
+    const sourcesBlock = safeResults
+      .map((r, i) => `- [Fuente ${i + 1}](${r.url})`)
+      .join('\n');
+
+    const prompt = `Actúa como Director de Inteligencia de Onda Radio. Analiza estas fuentes para detectar la VERDAD central, el impacto CIUDADANO y los datos DUROS.
 No hagas un resumen genérico. Encuentra el "ángulo humano" y las consecuencias reales.
 
 FUENTES DE INTELIGENCIA:
@@ -130,7 +151,6 @@ ESTRUCTURA DEL REPORTE (Markdown):
 ### 🔍 HALLAZGOS CLAVE
 - [Dato 1 con cifra]
 - [Dato 2 con implicación]
-...
 
 ### 📝 ANÁLISIS DE IMPACTO
 - **Contexto:** (Qué está pasando realmente detrás de los titulares)
@@ -140,116 +160,61 @@ ESTRUCTURA DEL REPORTE (Markdown):
 ### 📚 FUENTES VERIFICADAS
 ${sourcesBlock}`;
 
-      let reportText = "";
+    const { text, lastError } = await generateWithCascade(prompt, 'ONDA-INTEL');
+    let reportText = text || (await tryOllama(prompt, 'ONDA-INTEL'));
 
-      // INTENTO DE IA (GEMINI CASCADE CON ROTACIÓN)
-      // 3. GENERACIÓN DE REPORTE NARRATIVO (Con Cascada de Bóveda)
-      const { text, lastError } = await generateWithVaultRotation(prompt, "ONDA-INTEL");
-      if (text) reportText = text;
-      else console.error("[ONDA-INTEL] Fallo total de IA (Bóveda + Local):", lastError);
-      
-      if (!reportText) {
-         // Fallback Local (OLLAMA) si todo lo anterior falla
-         try {
-           console.log("[ONDA-INTEL] Gemini falló, intentando Ollama Local...");
-           const aiResponse = await fetch(`${OLLAMA_HOST}/api/generate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                model: process.env.MODEL_NAME || 'llama3', // Usa variable de entorno
-                prompt: prompt, 
-                stream: false 
-            }),
-            signal: AbortSignal.timeout(90000)
-          });
-          if (aiResponse.ok) {
-            const data = await aiResponse.json();
-            reportText = data.response;
-          }
-        } catch(e) { console.warn("Fallo IA Local también."); }
-      }
-
-      if (reportText) {
-        return {
-          report: reportText,
-          sourcesFound: safeResults.length,
-          entitiesMatched: [...images, "---SPLIT---", ...rawImages.map((img: any) => typeof img === 'string' ? img : img.url)]
-        };
-      }
-
-      // 4. FALLBACK FINAL: REPORTE DE "DATOS CRUDOS"
-      console.warn("[ONDA-INTEL] Fallo total de IA (Cloud+Local). Mostrando Datos Crudos...");
-      
-      const rawReport = `
-# EXPEDIENTE DE ACCESO DIRECTO (RAW INTEL)
-
-**NOTA DEL SISTEMA:** El motor de redacción neuronal no está disponible, pero la investigación OSINT fue exitosa. A continuación se presentan los datos crudos recuperados.
-
----
-
-## 🔍 HALLAZGOS CONFIRMADOS (${safeResults.length} Fuentes)
-
-${safeResults.map((r: any, i: number) => `
-### ${i+1}. ${r.title}
-> "${r.content}"
-*   **Fuente:** [Ver Enlace Original](${r.url})
-`).join('\n')}
-
----
-*Reporte generado automáticamente por Onda Radio Intelligence.*
-`;
-
-      return {
-        report: rawReport,
-        sourcesFound: safeResults.length,
-        entitiesMatched: [...images, "---SPLIT---", ...rawImages.map((img: any) => typeof img === 'string' ? img : img.url)]
-      };
-
-    } catch (error: unknown) {
-      console.error("[ONDA-INTEL] Error Crítico:", error);
-      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
-      return {
-        report: `# ERROR DE SISTEMA\n\nNo se pudo completar la investigación.\nError: ${errorMessage}`,
-        sourcesFound: 0,
-        entitiesMatched: []
-      };
+    if (!reportText) {
+      console.error('[ONDA-INTEL] Fallo total de IA:', lastError);
+      reportText = `# EXPEDIENTE DE ACCESO DIRECTO\n\n**Motor de IA no disponible.** Datos OSINT recuperados:\n\n${safeResults
+        .map((r, i) => `### ${i + 1}. ${r.title}\n> ${r.content}\n- [Ver fuente](${r.url})`)
+        .join('\n\n')}`;
     }
+
+    return {
+      report: reportText,
+      sourcesFound: safeResults.length,
+      entitiesMatched: [...images, '---SPLIT---', ...rawImageUrls],
+    };
   }
 }
 
 export async function runInvestigation(title: string, context: string): Promise<InvestigationResult> {
-  return await InvestigationEngine.start(title, context);
+  return InvestigationEngine.start(title, context);
 }
 
-// 🚀 PROTOCOLO DE ESTRATEGIA DIGITAL "ONDA" V-FINAL 
-export async function generateTransmediaPack(reportContent: string, title: string): Promise<string> {
-  const prompt = `Actúa como Estratega Digital Senior para Onda Radio. Tu misión es transformar este reporte técnico en una narrativa transmedia HUMANA, COHERENTE y VIRAL. 
-EVITA los clichés de IA ("¿Sabías que...?", "Descubre aquí..."). Habla como un periodista real que le cuenta algo importante a su comunidad.
+// ──────────────────────────────────────────────
+// Transmedia generator
+// ──────────────────────────────────────────────
+export async function generateTransmediaPack(
+  reportContent: string,
+  title: string
+): Promise<string> {
+  const prompt = `Actúa como Estratega Digital Senior para Onda Radio. Transforma este reporte en una narrativa transmedia HUMANA, COHERENTE y VIRAL.
+EVITA clichés de IA ("¿Sabías que...?", "Descubre aquí..."). Habla como un periodista real.
 
 REPORTE BASE: "${reportContent.substring(0, 5000)}"
 TEMA: "${title}"
 
-Responde en este formato exacto (markdown):
+Responde en este formato exacto:
 
 ### A. EL TITULAR MAESTRO
-**H1:** (Un titular que atrape pero sea 100% veraz)
+**H1:** (Titular veraz e impactante)
 **Meta-Descripción:** (Resumen SEO humano)
 
 ### B. NOTA WEB (ONDA BLOG)
-(Escribe una crónica periodística de 500 palabras. Usa subtítulos. Céntrate en por qué esto es noticia HOY).
+(Crónica periodística de 500 palabras. Usa subtítulos. Por qué es noticia HOY).
 
 ### C. FACEBOOK (COMUNIDAD)
-(Post informativo pero cálido. Genera debate respetuoso sobre el tema).
+(Post informativo y cálido. Genera debate respetuoso).
 
 ### D. CARRUSEL DE INSTAGRAM (4 ACTOS)
-(IMPORTANTE: Cada slide debe contar una parte de la historia. Usa **negritas dobles** para las palabras que quieras destacar en VERDE ONDA).
-- **SLIDE 1 (GANCHO):** (Un gancho visual disruptivo pero relacionado al tema. Ejemplo: "La verdad sobre el **[Tema]** en nuestra ciudad").
-- **SLIDE 2 (EL HECHO):** (El dato más fuerte extraído del reporte).
-- **SLIDE 3 (EL CONTEXTO):** (Por qué esto te afecta a TI, el lector).
-- **SLIDE 4 (ACCION):** (Un llamado a la acción real o reflexión final).
+- **SLIDE 1 (GANCHO):** (Gancho visual relacionado al tema)
+- **SLIDE 2 (EL HECHO):** (El dato más fuerte del reporte)
+- **SLIDE 3 (EL CONTEXTO):** (Por qué te afecta a TI el lector)
+- **SLIDE 4 (ACCION):** (Llamado a la acción o reflexión final)
 
 ### E. X / TWITTER (HILO)
-(3 posts concatenados con la esencia de la noticia).
+(3 posts concatenados con la esencia de la noticia)
 
 ### F. TIKTOK / REELS (GUIÓN)
 **Gancho:** (Frase potente para 3s)
@@ -264,36 +229,15 @@ Responde en este formato exacto (markdown):
 (Hashtags estratégicos)`;
 
   try {
-     // 1. INTENTO CON GEMINI CASCADE Y BÓVEDA DE LLAVES
-    const { text, lastError } = await generateWithVaultRotation(prompt, "ONDA-TRANS");
+    const { text, lastError } = await generateWithCascade(prompt, 'ONDA-TRANS');
     if (text) return text;
-    console.warn("[ONDA-TRANS] Bóveda de IA falló por completo:", lastError);
-    
-    // 2. INTENTO CON OLLAMA (Local) - Solo si Gemini falla
-    try {
-      console.log(`[ONDA-TRANS] Intentando IA Local...`);
-      const aiResponse = await fetch(`${OLLAMA_HOST}/api/generate`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-              model: 'llama3', 
-              prompt: prompt, 
-              stream: false 
-          }), 
-          signal: AbortSignal.timeout(120000) 
-      });
-        
-      if (aiResponse.ok) {
-          const data: any = await aiResponse.json();
-          if (data.response) return data.response;
-      }
-    } catch (_e) {
-      console.warn("[ONDA-TRANS] IA Local no disponible.");
-    }
 
-    // 3. SUPER FALLBACK: GENERACIÓN POR REGLAS
-    return `
-### A. EL TITULAR MAESTRO
+    console.warn('[ONDA-TRANS] Gemini falló:', lastError);
+    const local = await tryOllama(prompt, 'ONDA-TRANS');
+    if (local) return local;
+
+    // Rule-based fallback
+    return `### A. EL TITULAR MAESTRO
 **H1:** ${title}
 **Meta-Descripción:** Reporte especial de Onda Radio sobre ${title}.
 
@@ -304,10 +248,10 @@ ${reportContent}
 - **SLIDE 1 (GANCHO):** La verdad sobre **${title}**.
 - **SLIDE 2 (EL HECHO):** Datos verificados sobre la situación actual.
 - **SLIDE 3 (EL CONTEXTO):** Así nos afecta a todos como comunidad.
-- **SLIDE 4 (ACCION):** Mantente informado con Onda Radio.
-    `;
-  } catch (error: any) {
-    console.error("[ONDA-TRANS] Fallo Crítico:", error);
-    return `# ERROR DE GENERACIÓN\n\nEl estratega digital no pudo procesar la solicitud.\nMotivo: ${error.message}.`;
+- **SLIDE 4 (ACCION):** Mantente informado con Onda Radio.`;
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[ONDA-TRANS] Fallo Crítico:', msg);
+    return `# ERROR DE GENERACIÓN\n\nNo se pudo procesar la solicitud.\nMotivo: ${msg}.`;
   }
 }
