@@ -2,7 +2,9 @@
 
 import { NewsArticle } from '@/lib/api/types';
 
-const API_KEY = "pub_839fcc38918945318990904e0be82253";
+import { getActiveKey } from '@/lib/vault';
+
+const API_KEY = getActiveKey('NEWSDATA');
 const BASE_URL = 'https://newsdata.io/api/1/latest';
 
 export async function fetchNewsAction(category?: string, query?: string, countryCode?: string): Promise<NewsArticle[]> {

@@ -14,8 +14,10 @@ export interface InvestigationResult {
   entitiesMatched: string[];
 }
 
-const TAVILY_API_KEY = "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";
-const DEFAULT_GEMINI_API_KEY = "AIzaSyCPDUiCsNXXToaFt0paWYAE4mT9Z3idm90";
+import { getActiveKey } from "@/lib/vault";
+
+const TAVILY_API_KEY = getActiveKey('TAVILY');
+const DEFAULT_GEMINI_API_KEY = getActiveKey('GEMINI');
 const OLLAMA_HOST = 'http://localhost:11434';
 
 const MODELS_TO_TRY = [
