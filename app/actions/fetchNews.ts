@@ -1,22 +1,14 @@
 import { getActiveKey, rotateKey } from '@/lib/vault';
-
-export interface NewsArticle {
-  title: string;
-  link: string;
-  description: string;
-  pubDate: string;
-  source_id: string;
-  image_url?: string;
-  category: string[];
-  snippet?: string;
-  investigationReport?: string; // Cacheado opcional
-}
+import { NewsArticle } from '@/lib/api/types';
 
 const BASE_URL = 'https://newsdata.io/api/1/latest';
 
+/**
+ * MOTOR DE NOTICIAS ONDA v6.1 (TIPADO UNIFICADO)
+ */
 export async function fetchNewsAction(category?: string, query?: string, countryCode?: string): Promise<NewsArticle[]> {
   let attempts = 0;
-  const maxAttempts = 5; // Más intentos para cubrir la super-bóveda
+  const maxAttempts = 5;
 
   while (attempts < maxAttempts) {
     const key = getActiveKey('NEWSDATA');
@@ -40,26 +32,39 @@ export async function fetchNewsAction(category?: string, query?: string, country
       const data = await res.json();
 
       if (data.status === 'success' && data.results && data.results.length > 0) {
-        console.log(`[ONDA-NEWS] ✅ Éxito: ${data.results.length} noticias. Canal verificado.`);
-        return data.results;
+        console.log(`[ONDA-NEWS] ✅ Éxito: ${data.results.length} noticias.`);
+        
+        // Mapeo al tipo oficial NewsArticle
+        return data.results.map((r: any) => ({
+          id: r.article_id || r.link,
+          title: r.title,
+          description: r.description || r.snippet || "Sin descripción disponible.",
+          content: r.content || r.description || "Contenido no disponible.",
+          url: r.link,
+          image: r.image_url || r.video_url || undefined,
+          publishedAt: r.pubDate || new Date().toISOString(),
+          source: {
+            name: r.source_id || "Fuente Desconocida",
+            url: r.link
+          },
+          category: r.category?.[0] || "general",
+          country: r.country?.[0] || "colombia"
+        }));
       }
 
-      // 🚨 Diagnóstico Profundo
-      const errorMsg = data.results?.message || data.message || "Error Desconocido";
-      console.warn(`[ONDA-NEWS] ⚠️ Canal Saturado o Bloqueado (${res.status}): ${errorMsg}`);
+      console.warn(`[ONDA-NEWS] ⚠️ Canal Saturado (${res.status})`);
       rotateKey('NEWSDATA');
       attempts++;
 
     } catch (error: any) {
-       // Si es un timeout o error de red local
-      console.error(`[ONDA-NEWS] ❌ Error de Red Local (${error.name}): Rotando canal...`);
+      console.error(`[ONDA-NEWS] ❌ Error de Red: Rotando canal...`);
       rotateKey('NEWSDATA');
       attempts++;
     }
   }
 
-  // 🛰️ PROTOCOLO BYPASS OSINT (Respaldo Extremo)
-  console.error('[ONDA-NEWS] 🚨 Todos los canales NewsData saturados. Iniciando BYPASS OSINT...');
+  // 🛰️ PROTOCOLO BYPASS OSINT
+  console.error('[ONDA-NEWS] 🚨 BYPASS OSINT activado...');
   try {
      const tavilyKey = getActiveKey('TAVILY');
      const osintRes = await fetch('https://api.tavily.com/search', {
@@ -69,24 +74,25 @@ export async function fetchNewsAction(category?: string, query?: string, country
          api_key: tavilyKey,
          query: query || "noticias hoy colombia impacto ciudadano",
          search_depth: 'advanced',
-         max_results: 5
+         max_results: 8
        })
      });
      const osintData = await osintRes.json();
      if (osintData.results) {
-        console.log(`[ONDA-NEWS] 🛡️ Éxito en BYPASS OSINT: ${osintData.results.length} noticias recuperadas.`);
         return osintData.results.map((r: any) => ({
+           id: r.url,
            title: r.title,
-           link: r.url,
-           description: r.content,
-           pubDate: new Date().toISOString(),
-           source_id: 'OSINT_RADAR',
-           category: ['OSINT'],
-           snippet: r.content.substring(0, 160)
+           description: r.content.substring(0, 200),
+           content: r.content,
+           url: r.url,
+           image: undefined,
+           publishedAt: new Date().toISOString(),
+           source: { name: 'OSINT RADAR', url: r.url },
+           category: 'osint'
         }));
      }
   } catch (e) {
-     console.error('[ONDA-NEWS] 💀 El sistema informativo colapsó totalmente.');
+     console.error('[ONDA-NEWS] 💀 Fallo total.');
   }
 
   return [];

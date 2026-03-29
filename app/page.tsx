@@ -42,10 +42,22 @@ export default function Home() {
     loadNews();
   }, [setArticles, _hasHydrated]);
 
+  // SEGURIDAD: Forzar hidratación si se queda bloqueada
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!_hasHydrated) {
+        console.warn("[ONDA-DASH] Forzando visualización de emergencia...");
+        useNewsStore.setState({ _hasHydrated: true });
+      }
+    }, 2000);
+    return () => clearTimeout(timer);
+  }, [_hasHydrated]);
+
   if (!_hasHydrated) {
     return (
-      <div className="h-screen flex items-center justify-center bg-black">
+      <div className="h-screen flex flex-col items-center justify-center bg-black space-y-4">
         <Loader2 size={40} className="text-primary animate-spin" />
+        <p className="text-[10px] text-primary/40 uppercase tracking-[0.4em] animate-pulse">Reconectando con la red local...</p>
       </div>
     );
   }
